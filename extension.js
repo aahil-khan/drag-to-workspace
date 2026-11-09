@@ -49,6 +49,7 @@ const ANY_BUTTON = Clutter.ModifierType.BUTTON1_MASK | Clutter.ModifierType.BUTT
     Clutter.ModifierType.BUTTON5_MASK;
 
 const FRAME_HOLD_MS = 500;
+const WORKSPACE_HOLD_MS = 1500;
 
 // Keycodes of the number row, which stay the same whatever the keyboard layout.
 const FIRST_NUMBER_KEYCODE = 10;
@@ -173,8 +174,9 @@ export default class EdgeTossExtension extends Extension {
         const followKey = settings.get_string('follow-modifier');
         const appKey = settings.get_string('app-modifier');
 
-        this._drag = {
+        const drag = {
             window: win,
+            originWorkspace: win.get_workspace(),
             monitors,
             originMonitor,
             frameRect: win.get_frame_rect(),
@@ -201,13 +203,14 @@ export default class EdgeTossExtension extends Extension {
                 arrows: ARROWS[global.workspace_manager.layout_columns === 1 ? 'vertical' : 'horizontal'],
             },
             session: new DragSession({
-                getTargets: side => this._targetsFor(win, side, offerNew),
+                getTargets: side => this._targetsFor(win, this._homeWorkspace(drag), side, offerNew),
                 band: settings.get_int('edge-depth'),
                 aspect: originMonitor.width / originMonitor.height,
                 zones: {left: zone('left'), right: zone('right')},
                 allowMonitor: index => !primaryOnly || index === Main.layoutManager.primaryIndex,
                 holdDelay: settings.get_int('hold-delay-ms'),
                 followDelay: settings.get_int('follow-delay-ms'),
+                followStartDelay: settings.get_int('follow-start-delay-ms'),
                 holdToFollow: settings.get_boolean('hold-to-follow'),
                 dropAction: settings.get_string('drop-action'),
                 cardWidth: settings.get_int('card-width'),
@@ -215,9 +218,9 @@ export default class EdgeTossExtension extends Extension {
                 topEdge: settings.get_boolean('top-edge'),
             }),
         };
+        this._drag = drag;
 
         // A filter sees each event first, even with the drag's grab in place.
-        const drag = this._drag;
         this._eventFilterId = Clutter.Event.add_filter(global.stage, event => {
             this._onDragEvent(drag, event);
             return Clutter.EVENT_PROPAGATE;
@@ -277,9 +280,18 @@ export default class EdgeTossExtension extends Extension {
         return drag.usesEventPosition ? drag.eventPosition : global.get_pointer();
     }
 
-    _targetsFor(win, side, offerNew) {
+    /**
+     * The workspace the window is leaving. On a monitor without workspaces a window is on
+     * all of them, so while it's being dragged over one, the last real one counts.
+     */
+    _homeWorkspace(drag) {
+        if (!drag.window.is_on_all_workspaces())
+            drag.originWorkspace = drag.window.get_workspace();
+        return drag.originWorkspace;
+    }
+
+    _targetsFor(win, workspace, side, offerNew) {
         const manager = global.workspace_manager;
-        const workspace = win.get_workspace();
         const count = manager.get_n_workspaces();
         const last = manager.get_workspace_by_index(count - 1);
 
@@ -366,7 +378,7 @@ export default class EdgeTossExtension extends Extension {
             drag.originMonitor;
         const side = session.side === 'left' || session.side === 'right'
             ? session.side
-            : this._sideOf(decision, win);
+            : this._sideOf(decision, this._homeWorkspace(drag));
 
         this._cancelDrag();
         if (!decision)
@@ -385,17 +397,17 @@ export default class EdgeTossExtension extends Extension {
     }
 
     /** Which way a window goes when it wasn't dropped on a side edge. */
-    _sideOf(decision, win) {
-        return decision && decision.target.index < win.get_workspace().index() ? 'left' : 'right';
+    _sideOf(decision, origin) {
+        return decision && decision.target.index < origin.index() ? 'left' : 'right';
     }
 
     /** The other windows of the same app on the same workspace. */
-    _appWindowsWith(win) {
+    _appWindowsWith(win, origin) {
         const app = Shell.WindowTracker.get_default().get_window_app(win);
         if (!app)
             return [];
         return app.get_windows().filter(w => w !== win &&
-            w.get_workspace() === win.get_workspace() &&
+            w.get_workspace() === origin &&
             !w.get_transient_for() &&
             canToss(w));
     }
@@ -409,16 +421,6 @@ export default class EdgeTossExtension extends Extension {
         // The window may have closed since the drop.
         if (!win.get_compositor_private())
             return;
-
-        // Put it back as it was before the drag. That also undoes any tile.
-        if (hasMaximizedState(win))
-            unmaximize(win);
-        const r = drag.frameRect;
-        this._restoreFrame(win, r);
-        if (drag.wasMaximized) {
-            this._stopHoldingFrame();
-            maximize(win);
-        }
 
         const manager = global.workspace_manager;
         let workspace;
@@ -434,9 +436,17 @@ export default class EdgeTossExtension extends Extension {
         if (!workspace)
             return;
 
-        const origin = win.get_workspace();
-        const moved = allWindows ? [win, ...this._appWindowsWith(win)] : [win];
-        moved.forEach(w => w.change_workspace(workspace));
+        const origin = this._homeWorkspace(drag);
+        const others = allWindows ? this._appWindowsWith(win, origin) : [];
+        const moved = [win, ...others];
+
+        // Put it back as it was before the drag, which also undoes any tile, and send it.
+        if (hasMaximizedState(win))
+            unmaximize(win);
+        this._holdInPlace(win, drag.wasMaximized ? null : drag.frameRect, workspace);
+        if (drag.wasMaximized)
+            maximize(win);
+        others.forEach(w => w.change_workspace(workspace));
 
         if (switchesNow) {
             workspace.activate_with_focus(win, global.get_current_time());
@@ -461,6 +471,7 @@ export default class EdgeTossExtension extends Extension {
     }
 
     _undoMove(windows, origin) {
+        this._stopHoldingFrame();
         const manager = global.workspace_manager;
         const stillExists = manager.get_workspace_by_index(origin.index()) === origin;
         const workspace = stillExists ? origin : manager.get_active_workspace();
@@ -501,34 +512,63 @@ export default class EdgeTossExtension extends Extension {
     }
 
     /**
-     * Puts a window back where it was before the drag, and keeps it there for a moment. On
-     * older versions of GNOME, the app's replies to the updates sent at the end of the drag
-     * arrive later, and move the window back to where it was dropped or tiled.
+     * Puts a window back where it was before the drag, sends it to its workspace, and keeps
+     * it that way for a moment. On older versions of GNOME, the app's replies to the
+     * updates sent at the end of the drag arrive later, and move the window back to where it
+     * was dropped or tiled. Being dropped on a monitor without workspaces also puts it on
+     * every workspace until it's back on its own monitor. `rect` is null to leave its size
+     * alone, as for a maximized window.
      */
-    _restoreFrame(win, rect) {
+    _holdInPlace(win, rect, workspace) {
         this._stopHoldingFrame();
 
-        const apply = () => win.move_resize_frame(false, rect.x, rect.y, rect.width, rect.height);
-        apply();
+        const hold = {win, laterId: 0, workspaceTimeoutId: 0};
+        const placeFrame = () => {
+            if (hold.rect && !win.get_frame_rect().equal(hold.rect))
+                win.move_resize_frame(false, hold.rect.x, hold.rect.y, hold.rect.width, hold.rect.height);
+        };
+        // Only while the move hasn't taken, so that a later move of the window, by you or
+        // anything else, isn't undone. A window bouncing through a monitor without
+        // workspaces comes back on the current one, so that counts as not taken.
+        const sendToWorkspace = () => {
+            if (!hold.workspace)
+                return;
+            win.change_workspace(hold.workspace);
+            if (win.get_workspace() === hold.workspace && !win.is_on_all_workspaces())
+                hold.workspace = null;
+        };
 
-        const hold = {win, laterId: 0};
-        // Not straight away: Mutter is still handling the reply when these signals fire, and
-        // it would overwrite the change as it finishes.
+        hold.rect = rect;
+        hold.workspace = workspace;
+        placeFrame();
+        sendToWorkspace();
+
+        // Not straight away: Mutter is still handling the change when these signals fire,
+        // and it would overwrite this as it finishes.
         const onChanged = () => {
-            if (hold.laterId || win.get_frame_rect().equal(rect))
+            if (win.is_on_all_workspaces())
+                hold.workspace = workspace;
+            if (hold.laterId)
                 return;
             hold.laterId = global.compositor.get_laters().add(Meta.LaterType.BEFORE_REDRAW, () => {
                 hold.laterId = 0;
-                apply();
+                placeFrame();
+                sendToWorkspace();
                 return GLib.SOURCE_REMOVE;
             });
         };
         hold.signalIds = [
             win.connect('position-changed', onChanged),
             win.connect('size-changed', onChanged),
+            win.connect('workspace-changed', onChanged),
         ];
         hold.timeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, FRAME_HOLD_MS, () => {
             hold.timeoutId = 0;
+            hold.rect = null;
+            return GLib.SOURCE_REMOVE;
+        });
+        hold.workspaceTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, WORKSPACE_HOLD_MS, () => {
+            hold.workspaceTimeoutId = 0;
             this._stopHoldingFrame();
             return GLib.SOURCE_REMOVE;
         });
@@ -538,14 +578,17 @@ export default class EdgeTossExtension extends Extension {
     _stopHoldingFrame() {
         if (!this._frameHold)
             return;
-        const {win, signalIds, timeoutId, laterId} = this._frameHold;
+        const {win, signalIds, timeoutId, workspaceTimeoutId, laterId} = this._frameHold;
         signalIds.forEach(id => win.disconnect(id));
         if (timeoutId)
             GLib.source_remove(timeoutId);
+        if (workspaceTimeoutId)
+            GLib.source_remove(workspaceTimeoutId);
         if (laterId)
             global.compositor.get_laters().remove(laterId);
         this._frameHold = null;
     }
+
 
     _cancelPendingSwitch() {
         if (this._pendingSwitchId) {

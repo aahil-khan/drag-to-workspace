@@ -302,8 +302,31 @@ test('moving up and down the picker chooses a far workspace', () => {
     assert.deepEqual(s.decide(), {target: {index: 3, isNew: true}, follow: false});
 });
 
+test('going with the window waits 150ms by default, then fills', () => {
+    const s = armedAt(session({followDelay: 1150}));
+    s.update(1599, 300, 360, single);
+    s.update(1599, 300, 360 + 140, single);
+    assert.equal(s.followProgress, 0);
+    s.update(1599, 300, 360 + 150 + 500, single);
+    assert.ok(Math.abs(s.followProgress - 0.5) < 0.001);
+    s.update(1599, 300, 360 + 1150, single);
+    assert.equal(s.followProgress, 1);
+});
+
+test('the wait before filling is configurable, and never takes over the whole hold', () => {
+    const none = armedAt(session({followDelay: 1000, followStartDelay: 0}));
+    none.update(1599, 300, 360, single);
+    none.update(1599, 300, 360 + 100, single);
+    assert.ok(Math.abs(none.followProgress - 0.1) < 0.001);
+
+    const long = armedAt(session({followDelay: 400, followStartDelay: 900}));
+    long.update(1599, 300, 360, single);
+    long.update(1599, 300, 360 + 300, single);
+    assert.ok(Math.abs(long.followProgress - 0.5) < 0.001);
+});
+
 test('going with the window loads up steadily after a short pause', () => {
-    const s = armedAt(session({followDelay: 1250}));
+    const s = armedAt(session({followDelay: 1250, followStartDelay: 250}));
     s.update(1599, 300, 360, single);
     s.update(1599, 300, 360 + 200, single);
     assert.equal(s.followProgress, 0);

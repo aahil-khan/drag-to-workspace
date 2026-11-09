@@ -69,11 +69,12 @@ function timingPreviewRow(settings) {
         stop();
         const hold = settings.get_int('hold-delay-ms');
         const follow = settings.get_int('follow-delay-ms');
+        const wait = Math.min(settings.get_int('follow-start-delay-ms'), follow / 2);
         const started = GLib.get_monotonic_time();
         tickId = box.add_tick_callback(() => {
             const elapsed = (GLib.get_monotonic_time() - started) / 1000;
             holdBar.fraction = Math.min(elapsed / hold, 1);
-            followBar.fraction = Math.min(Math.max(elapsed - hold, 0) / follow, 1);
+            followBar.fraction = Math.min(Math.max(elapsed - hold - wait, 0) / (follow - wait), 1);
             if (elapsed < hold + follow + 500)
                 return GLib.SOURCE_CONTINUE;
             holdBar.fraction = 0;
@@ -199,6 +200,10 @@ export default class EdgeTossPreferences extends ExtensionPreferences {
             _('Time for a workspace in the picker to fill up, in milliseconds'), 200, 3000, 50);
         settings.bind('hold-to-follow', follow, 'sensitive', Gio.SettingsBindFlags.GET);
         timing.add(follow);
+        const followStart = spinRow(settings, 'follow-start-delay-ms', _('Wait Before Filling'),
+            _('Time over a workspace before it starts to fill, in milliseconds, so that moving past workspaces doesn\u2019t start it'), 0, 1000, 25);
+        settings.bind('hold-to-follow', followStart, 'sensitive', Gio.SettingsBindFlags.GET);
+        timing.add(followStart);
         timing.add(timingPreviewRow(settings));
         page.add(timing);
 

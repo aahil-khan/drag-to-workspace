@@ -11,6 +11,11 @@
       <default>1200</default>
       <summary>How long to hold over a workspace in the picker until it fills up</summary>
     </key>
+    <key name="follow-start-delay-ms" type="i">
+      <range min="0" max="1000"/>
+      <default>150</default>
+      <summary>How long to wait over a workspace in the picker before it starts filling up</summary>
+    </key>
     <key name="drop-action" type="s">
       <choices>
         <choice value="stay"/>

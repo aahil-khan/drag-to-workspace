@@ -1944,7 +1944,7 @@ export default class DriverExtension extends Extension {
                 await this._shot('24-prefs-timing');
 
                 // Play the timing preview, and catch it part way.
-                await this._moveTo(...at(564, 260));
+                await this._moveTo(...at(564, 328));
                 await sleep(80);
                 this._button(true);
                 await sleep(40);
@@ -1955,6 +1955,14 @@ export default class DriverExtension extends Extension {
                 // Reset puts everything back, including what was changed above.
                 settings.set_int('hold-delay-ms', 900);
                 await sleep(150);
+                // The reset row is below the fold, so scroll down to it.
+                await this._moveTo(...at(340, 500));
+                for (let i = 0; i < 12; i++) {
+                    this._pointer.notify_discrete_scroll(now(), Clutter.ScrollDirection.DOWN, Clutter.ScrollSource.WHEEL);
+                    await sleep(40);
+                }
+                await sleep(600);
+                await this._shot('25b-prefs-reset-row');
                 await this._moveTo(...at(340, 744));
                 await sleep(80);
                 this._button(true);

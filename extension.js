@@ -21,8 +21,14 @@ import {Overlay} from './lib/ui.js';
 
 const POLL_MS = 16;
 
-// DRAG_THRESHOLD_TO_SHAKE_THRESHOLD_FACTOR in meta-window-drag.c
-const MUTTER_TILE_BAND_FACTOR = 6;
+// Not Shift: Mutter treats Shift during a drag as snap mode, which clears any pending
+// tile and makes it ignore the button release (meta-window-drag.c). Ctrl only makes the
+// window stick to other windows' edges, and the window gets put back anyway.
+const MODIFIER_MASKS = {
+    ctrl: Clutter.ModifierType.CONTROL_MASK,
+    alt: Clutter.ModifierType.MOD1_MASK,
+    none: 0,
+};
 
 const MOVABLE_TYPES = new Set([
     Meta.WindowType.NORMAL,
@@ -64,7 +70,7 @@ function snapshotMonitors() {
 export default class EdgeTossExtension extends Extension {
     enable() {
         this._settings = this.getSettings();
-        this._overlay = new Overlay(this._settings);
+        this._overlay = new Overlay();
         this._drag = null;
 
         // Hide Mutter's tile preview while the pointer belongs to Edge Toss.
@@ -108,21 +114,38 @@ export default class EdgeTossExtension extends Extension {
         if (!originMonitor)
             return;
 
+        const settings = this._settings;
+        const zone = side => ({
+            enabled: settings.get_boolean(`${side}-enabled`),
+            start: settings.get_int(`${side}-zone-start`) / 100,
+            end: settings.get_int(`${side}-zone-end`) / 100,
+        });
+        const primaryOnly = settings.get_string('monitors') === 'primary';
+        const offerNew = settings.get_boolean('offer-new-workspace');
+
         this._drag = {
             window: win,
             monitors,
             originMonitor,
             frameRect: win.get_frame_rect(),
             wasMaximized: win.is_maximized(),
+            modifierMask: MODIFIER_MASKS[settings.get_string('follow-modifier')] ?? 0,
+            options: {
+                showHint: settings.get_boolean('show-hint'),
+                showConfirmation: settings.get_boolean('show-confirmation'),
+                animateThrow: settings.get_boolean('animate-throw'),
+            },
             session: new DragSession({
-                getTargets: side => this._targetsFor(win, side),
-                band: Meta.prefs_get_drag_threshold() * MUTTER_TILE_BAND_FACTOR,
+                getTargets: side => this._targetsFor(win, side, offerNew),
+                band: settings.get_int('edge-depth'),
                 aspect: originMonitor.width / originMonitor.height,
-                tileZone: this._settings.get_string('tile-zone'),
-                tileZoneSize: this._settings.get_int('tile-zone-size'),
-                holdDelay: this._settings.get_int('hold-delay-ms'),
-                followDelay: this._settings.get_int('follow-delay-ms'),
-                dropAction: this._settings.get_string('drop-action'),
+                zones: {left: zone('left'), right: zone('right')},
+                allowMonitor: index => !primaryOnly || index === Main.layoutManager.primaryIndex,
+                holdDelay: settings.get_int('hold-delay-ms'),
+                followDelay: settings.get_int('follow-delay-ms'),
+                holdToFollow: settings.get_boolean('hold-to-follow'),
+                dropAction: settings.get_string('drop-action'),
+                cardWidth: settings.get_int('card-width'),
             }),
         };
 
@@ -134,7 +157,7 @@ export default class EdgeTossExtension extends Extension {
         this._tick();
     }
 
-    _targetsFor(win, side) {
+    _targetsFor(win, side, offerNew) {
         const manager = global.workspace_manager;
         const workspace = win.get_workspace();
         const count = manager.get_n_workspaces();
@@ -150,6 +173,7 @@ export default class EdgeTossExtension extends Extension {
             dynamic: Meta.prefs_get_dynamic_workspaces(),
             lastIsEmpty: !last.list_windows().some(countsOnWorkspace),
             windowAlone: others.length === 0,
+            offerNew,
         });
     }
 
@@ -158,7 +182,7 @@ export default class EdgeTossExtension extends Extension {
         if (!drag)
             return;
 
-        const [x, y] = global.get_pointer();
+        const [x, y, mods] = global.get_pointer();
         const wasIdle = drag.session.phase === Phase.IDLE;
         drag.session.update(x, y, GLib.get_monotonic_time() / 1000, drag.monitors);
 
@@ -170,6 +194,8 @@ export default class EdgeTossExtension extends Extension {
             monitors: drag.monitors,
             originMonitor: drag.originMonitor,
             draggedWindow: drag.window,
+            options: drag.options,
+            modifierHeld: (mods & drag.modifierMask) !== 0,
             targetWorkspace: target => (target.index >= 0
                 ? global.workspace_manager.get_workspace_by_index(target.index)
                 : null),
@@ -199,8 +225,8 @@ export default class EdgeTossExtension extends Extension {
         // Escape ends the grab with the button still held. Mutter has already put
         // the window back, so there is nothing to throw.
         const cancelled = (mods & ANY_BUTTON) !== 0;
-        const shift = (mods & Clutter.ModifierType.SHIFT_MASK) !== 0;
-        const decision = cancelled ? null : drag.session.decide(shift);
+        const modifierHeld = (mods & drag.modifierMask) !== 0;
+        const decision = cancelled ? null : drag.session.decide(modifierHeld);
         const side = drag.session.side;
         const monitor = drag.monitors[drag.session.monitorIndex];
 
@@ -208,7 +234,9 @@ export default class EdgeTossExtension extends Extension {
         if (!decision)
             return;
 
-        const snapshot = decision.follow ? null : this._snapshotWindow(win);
+        const snapshot = decision.follow || !drag.options.animateThrow
+            ? null
+            : this._snapshotWindow(win);
         const laters = global.compositor.get_laters();
         laters.add(Meta.LaterType.BEFORE_REDRAW, () => {
             this._toss(win, drag, decision, {snapshot, side, monitor, y});
@@ -264,6 +292,7 @@ export default class EdgeTossExtension extends Extension {
 
         if (snapshot)
             this._overlay.flyOut(snapshot.content, snapshot.rect, side, monitor);
-        this._overlay.confirm(side, target, monitor, y);
+        if (drag.options.showConfirmation)
+            this._overlay.confirm(side, target, monitor, y);
     }
 }

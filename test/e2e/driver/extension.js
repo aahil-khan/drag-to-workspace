@@ -14,6 +14,8 @@ Gio._promisify(Shell.Screenshot.prototype, 'screenshot');
 
 const BTN_LEFT = Clutter.BUTTON_PRIMARY;
 const KEY_SHIFT = 0xffe1;
+const KEY_CONTROL = 0xffe3;
+const KEY_ALT = 0xffe9;
 const KEY_ESCAPE = 0xff1b;
 const ARM_SETTLE = 60;
 const OUT = GLib.getenv('EDGE_TOSS_OUT');
@@ -34,6 +36,14 @@ const rectOf = win => {
 };
 
 class Failure extends Error {}
+
+function variantFor(value) {
+    if (typeof value === 'boolean')
+        return GLib.Variant.new_boolean(value);
+    if (typeof value === 'number')
+        return GLib.Variant.new_int32(value);
+    return GLib.Variant.new_string(value);
+}
 
 function check(condition, message) {
     if (!condition)
@@ -202,9 +212,23 @@ export default class DriverExtension extends Extension {
             this._results.push({name, ok: true, ms: Date.now() - started});
         } catch (e) {
             this._results.push({name, ok: false, message: `${e.message}${e instanceof Failure ? '' : `\n${e.stack}`}`});
-            this._key(KEY_SHIFT, false);
             this._button(false);
             await sleep(200);
+        }
+    }
+
+    /** Runs fn with settings changed, then puts them back to their defaults. */
+    async _withSettings(toss, values, fn) {
+        const settings = toss.stateObj.getSettings();
+        for (const [key, value] of Object.entries(values))
+            settings.set_value(key, value instanceof GLib.Variant ? value : variantFor(value));
+        await sleep(100);
+        try {
+            await fn();
+        } finally {
+            for (const key of Object.keys(values))
+                settings.reset(key);
+            await sleep(100);
         }
     }
 
@@ -250,15 +274,78 @@ export default class DriverExtension extends Extension {
             await this._drop();
         });
 
-        await this._test('quick drop with Shift goes with the window', async () => {
+        await this._test('Shift means nothing to Edge Toss: the throw still lands, and you stay', async () => {
             const a = this._find('A');
+            const before = rectOf(a);
             await this._grabTitlebar(a);
             await this._moveTo(RIGHT, 300);
             await sleep(ARM_SETTLE);
             this._key(KEY_SHIFT, true);
             await sleep(40);
+            await this._moveTo(RIGHT, 310, {steps: 3});
             await this._drop();
             this._key(KEY_SHIFT, false);
+            await sleep(300);
+            check(a.get_workspace().index() === 1, `A on ${a.get_workspace().index()}`);
+            check(activeIndex() === 0, `active is ${activeIndex()}`);
+            check(a.get_maximize_flags() === 0, 'A was left tiled');
+            check(sameRect(rectOf(a), before), `rect ${JSON.stringify(rectOf(a))} vs ${JSON.stringify(before)}`);
+        });
+
+        await this._test('Alt swaps instead when chosen, and Ctrl then does nothing', async () => {
+            await this._withSettings(toss, {'follow-modifier': 'alt'}, async () => {
+                const a = this._find('A');
+                await this._grabTitlebar(a);
+                await this._moveTo(RIGHT, 300);
+                await sleep(ARM_SETTLE);
+                this._key(KEY_CONTROL, true);
+                await sleep(40);
+                check(!session().willFollow(false), 'should still be staying');
+                await this._drop();
+                this._key(KEY_CONTROL, false);
+                await sleep(300);
+                check(activeIndex() === 0, `Ctrl took us to ${activeIndex()}`);
+            });
+            await this._reset();
+            await this._withSettings(toss, {'follow-modifier': 'alt'}, async () => {
+                const a = this._find('A');
+                await this._grabTitlebar(a);
+                await this._moveTo(RIGHT, 300);
+                await sleep(ARM_SETTLE);
+                this._key(KEY_ALT, true);
+                await sleep(40);
+                await this._drop();
+                this._key(KEY_ALT, false);
+                await sleep(500);
+                check(activeIndex() === 1, `active is ${activeIndex()}`);
+            });
+        });
+
+        await this._test('the modifier can be turned off', async () => {
+            await this._withSettings(toss, {'follow-modifier': 'none'}, async () => {
+                const a = this._find('A');
+                await this._grabTitlebar(a);
+                await this._moveTo(RIGHT, 300);
+                await sleep(ARM_SETTLE);
+                this._key(KEY_CONTROL, true);
+                await sleep(40);
+                await this._drop();
+                this._key(KEY_CONTROL, false);
+                await sleep(300);
+                check(a.get_workspace().index() === 1, `A on ${a.get_workspace().index()}`);
+                check(activeIndex() === 0, `active is ${activeIndex()}`);
+            });
+        });
+
+        await this._test('quick drop with Ctrl goes with the window', async () => {
+            const a = this._find('A');
+            await this._grabTitlebar(a);
+            await this._moveTo(RIGHT, 300);
+            await sleep(ARM_SETTLE);
+            this._key(KEY_CONTROL, true);
+            await sleep(40);
+            await this._drop();
+            this._key(KEY_CONTROL, false);
             await sleep(500);
             check(a.get_workspace().index() === 1, `A on workspace ${a.get_workspace().index()}`);
             check(activeIndex() === 1, `active is ${activeIndex()}`);
@@ -280,16 +367,16 @@ export default class DriverExtension extends Extension {
             check(activeIndex() === 1, `active is ${activeIndex()}, should follow B's workspace`);
         });
 
-        await this._test('new workspace on the left, with Shift: goes there', async () => {
+        await this._test('new workspace on the left, with Ctrl: goes there', async () => {
             const a = this._find('A');
             const b = this._find('B');
             await this._grabTitlebar(a);
             await this._moveTo(0, 300);
             await sleep(ARM_SETTLE);
-            this._key(KEY_SHIFT, true);
+            this._key(KEY_CONTROL, true);
             await sleep(40);
             await this._drop();
-            this._key(KEY_SHIFT, false);
+            this._key(KEY_CONTROL, false);
             await sleep(600);
             check(a.get_workspace().index() === 0, `A on ${a.get_workspace().index()}`);
             check(b.get_workspace().index() === 1, `B on ${b.get_workspace().index()}`);
@@ -326,17 +413,247 @@ export default class DriverExtension extends Extension {
 
         await this._test('holding on a card goes with the window', async () => {
             const a = this._find('A');
+            const overlay = () => toss.stateObj._overlay;
+            const card = () => overlay()._cards[session().selected];
             await this._grabTitlebar(a);
             await this._moveTo(RIGHT, 300);
             await sleep(450);
             check(session().phase === 'picker', `phase was ${session().phase}`);
             await sleep(1300);
             check(session().willFollow(false), 'should be following after the dwell');
+            check(card()._fill.scale_x === 1, `fill at ${card()._fill.scale_x}`);
+            check(card()._caption.text === 'Go with it', `caption ${card()._caption.text}`);
             await this._shot('04-picker-follow');
             await this._drop();
             await sleep(500);
             check(activeIndex() === 1, `active is ${activeIndex()}`);
             check(a.get_workspace().index() === 1, `A on ${a.get_workspace().index()}`);
+        });
+
+        await this._test('the card visibly fills up on the way to going with it', async () => {
+            // Slow enough for the screenshot to land mid-fill.
+            await this._withSettings(toss, {'follow-delay-ms': 3000}, async () => {
+                const a = this._find('A');
+                const card = () => toss.stateObj._overlay._cards[session().selected];
+                await this._grabTitlebar(a);
+                await this._moveTo(RIGHT, 300);
+                await sleep(450);
+                check(session().phase === 'picker', `phase was ${session().phase}`);
+                check(card()._caption.text === 'Send here', `caption ${card()._caption.text}`);
+
+                const samples = [];
+                for (let i = 0; i < 4; i++) {
+                    await sleep(350);
+                    samples.push(card()._fill.scale_x);
+                }
+                check(samples.every((v, i) => i === 0 || v > samples[i - 1]), `fill didn't grow: ${samples}`);
+                check(samples[3] > 0.2 && samples[3] < 0.8, `fill at ${samples[3]}`);
+                check(!session().willFollow(false), 'flipped before the card was full');
+                check(card()._caption.text === 'Hold to go with it', `caption ${card()._caption.text}`);
+                await this._shot('04a-picker-filling');
+
+                // Moving to another card starts again from nothing.
+                const next = session().layout.rects[1] ?? session().layout.rects[0];
+                if (session().layout.rects.length > 1) {
+                    const was = session().followProgress;
+                    await this._moveTo(RIGHT, next.y + next.height / 2);
+                    await sleep(60);
+                    check(session().followProgress < was, 'moving did not reset the fill');
+                }
+                await this._moveTo(800, 500);
+                await this._drop();
+            });
+        });
+
+        await this._test('holding Ctrl over the picker shows the swap straight away', async () => {
+            const a = this._find('A');
+            const card = () => toss.stateObj._overlay._cards[session().selected];
+            await this._grabTitlebar(a);
+            await this._moveTo(RIGHT, 300);
+            await sleep(420);
+            check(session().phase === 'picker', `phase was ${session().phase}`);
+            this._key(KEY_CONTROL, true);
+            await sleep(80);
+            check(card()._caption.text === 'Go with it', `caption ${card()._caption.text}`);
+            check(card()._fill.scale_x === 1, `fill at ${card()._fill.scale_x}`);
+            this._key(KEY_CONTROL, false);
+            await sleep(80);
+            check(card()._caption.text !== 'Go with it', 'did not swap back on release');
+            await this._moveTo(800, 500);
+            await this._drop();
+        });
+
+        await this._test('hold-to-follow off: a long hold still just sends', async () => {
+            await this._withSettings(toss, {'hold-to-follow': false, 'follow-delay-ms': 400}, async () => {
+                const a = this._find('A');
+                await this._grabTitlebar(a);
+                await this._moveTo(RIGHT, 300);
+                await sleep(1000);
+                check(session().phase === 'picker', `phase was ${session().phase}`);
+                check(!session().willFollow(false), 'followed anyway');
+                await this._drop();
+                await sleep(300);
+                check(activeIndex() === 0, `active is ${activeIndex()}`);
+                check(a.get_workspace().index() === 1, `A on ${a.get_workspace().index()}`);
+            });
+        });
+
+        await this._test('drop-action follow: a drop goes along, and the hold fills towards staying', async () => {
+            await this._withSettings(toss, {'drop-action': 'follow', 'follow-delay-ms': 2000}, async () => {
+                const a = this._find('A');
+                const card = () => toss.stateObj._overlay._cards[session().selected];
+                await this._grabTitlebar(a);
+                await this._moveTo(RIGHT, 300);
+                await sleep(420);
+                check(card()._caption.text === 'Go with it', `caption ${card()._caption.text}`);
+                await sleep(700);
+                check(card()._caption.text === 'Hold to stay here', `caption ${card()._caption.text}`);
+                await this._moveTo(800, 500);
+                await this._moveTo(RIGHT, 300);
+                await sleep(ARM_SETTLE);
+                await this._drop();
+                await sleep(500);
+                check(activeIndex() === 1, `active is ${activeIndex()}`);
+            });
+        });
+
+        await this._test('a custom area: only that stretch of the edge throws, and the hint matches', async () => {
+            const settings = {
+                'right-zone-start': 40, 'right-zone-end': 60,
+                'left-zone-start': 40, 'left-zone-end': 60,
+            };
+            await this._withSettings(toss, settings, async () => {
+                const a = this._find('A');
+                const hintActor = toss.stateObj._overlay._hint;
+                await this._grabTitlebar(a);
+                await this._moveTo(RIGHT - 120, 500);
+                await sleep(60);
+                const wa = Main.layoutManager.getWorkAreaForMonitor(0);
+                check(Math.abs(hintActor.y - (wa.y + wa.height * 0.4)) <= 1, `hint at y=${hintActor.y}`);
+                check(Math.abs(hintActor.height - wa.height * 0.2) <= 1, `hint height ${hintActor.height}`);
+                await this._shot('08-custom-area-hint');
+
+                await this._moveTo(RIGHT, wa.y + wa.height * 0.2);
+                await sleep(350);
+                check(session().phase === 'idle', `above the area: ${session().phase}`);
+                check(Main.wm._tilePreview?.visible, 'no tile preview above the area');
+
+                await this._moveTo(RIGHT, wa.y + wa.height * 0.5);
+                await sleep(80);
+                check(session().phase === 'armed', `inside the area: ${session().phase}`);
+                await this._drop();
+                await sleep(300);
+                check(a.get_workspace().index() === 1, `A on ${a.get_workspace().index()}`);
+                check(a.get_maximize_flags() === 0, 'A was left tiled');
+            });
+        });
+
+        await this._test('a turned off edge just half-tiles, the other still throws', async () => {
+            await this._withSettings(toss, {'right-enabled': false}, async () => {
+                const a = this._find('A');
+                await this._grabTitlebar(a);
+                await this._moveTo(RIGHT - 120, 300);
+                await sleep(60);
+                check(!session().hint, 'hint on a turned off edge');
+                await this._moveTo(RIGHT, 300);
+                await sleep(350);
+                check(session().phase === 'idle', `phase was ${session().phase}`);
+                check(Main.wm._tilePreview?.visible, 'no tile preview');
+                await this._moveTo(0, 300, {steps: 30});
+                await sleep(ARM_SETTLE);
+                check(session().phase === 'armed', `left edge: ${session().phase}`);
+                await this._moveTo(800, 500);
+                await this._drop();
+            });
+        });
+
+        await this._test('a small distance leaves a strip that half-tiles before the edge', async () => {
+            await this._withSettings(toss, {'edge-depth': 8}, async () => {
+                const a = this._find('A');
+                await this._grabTitlebar(a);
+                await this._moveTo(RIGHT - 30, 300);
+                await sleep(350);
+                check(session().phase === 'idle', `30px out: ${session().phase}`);
+                check(Main.wm._tilePreview?.visible, 'no tile preview 30px out');
+
+                await this._moveTo(RIGHT, 300);
+                await sleep(80);
+                check(session().phase === 'armed', `at the edge: ${session().phase}`);
+                // The preview takes a moment to fade out.
+                await sleep(220);
+                check(!Main.wm._tilePreview?.visible, 'tile preview still up at the edge');
+
+                await this._moveTo(RIGHT - 30, 300);
+                await sleep(350);
+                check(Main.wm._tilePreview?.visible, 'tile preview did not come back');
+                await this._drop();
+                await sleep(300);
+                check(a.get_workspace().index() === 0, `A on ${a.get_workspace().index()}`);
+                check(a.get_maximize_flags() !== 0, 'A did not tile');
+            });
+        });
+
+        await this._test('a large distance throws from further out', async () => {
+            await this._withSettings(toss, {'edge-depth': 120}, async () => {
+                const a = this._find('A');
+                await this._grabTitlebar(a);
+                await this._moveTo(RIGHT - 90, 300);
+                await sleep(ARM_SETTLE);
+                check(session().phase === 'armed', `phase was ${session().phase}`);
+                await this._drop();
+                await sleep(300);
+                check(a.get_workspace().index() === 1, `A on ${a.get_workspace().index()}`);
+            });
+        });
+
+        await this._test('new workspaces can be turned off', async () => {
+            await this._withSettings(toss, {'offer-new-workspace': false}, async () => {
+                const a = this._find('A');
+                await this._grabTitlebar(a);
+                await this._moveTo(0, 300);
+                await sleep(350);
+                check(session().phase === 'idle', `phase was ${session().phase}`);
+                check(Main.wm._tilePreview?.visible, 'no tile preview');
+                await this._moveTo(800, 500);
+                await this._drop();
+                check(manager().get_n_workspaces() <= 2, 'made a workspace anyway');
+            });
+        });
+
+        await this._test('the look options are honoured', async () => {
+            const looks = {'show-hint': false, 'show-confirmation': false, 'animate-throw': false, 'card-width': 300};
+            await this._withSettings(toss, looks, async () => {
+                const overlay = toss.stateObj._overlay;
+                const calls = {flyOut: 0, confirm: 0};
+                const flyOut = overlay.flyOut;
+                const confirm = overlay.confirm;
+                overlay.flyOut = function (...args) {
+                    calls.flyOut++;
+                    return flyOut.apply(this, args);
+                };
+                overlay.confirm = function (...args) {
+                    calls.confirm++;
+                    return confirm.apply(this, args);
+                };
+                try {
+                    const a = this._find('A');
+                    await this._grabTitlebar(a);
+                    await this._moveTo(RIGHT - 120, 300);
+                    await sleep(60);
+                    check(!overlay._hint.visible, 'hint showed while off');
+                    await this._moveTo(RIGHT, 300);
+                    await sleep(450);
+                    check(session().phase === 'picker', `phase was ${session().phase}`);
+                    check(session().layout.cardWidth === 300, `card width ${session().layout.cardWidth}`);
+                    await this._drop();
+                    await sleep(200);
+                    check(a.get_workspace().index() === 1, `A on ${a.get_workspace().index()}`);
+                    check(calls.flyOut === 0 && calls.confirm === 0, `calls ${JSON.stringify(calls)}`);
+                } finally {
+                    delete overlay.flyOut;
+                    delete overlay.confirm;
+                }
+            });
         });
 
         await this._test('dragging back out of the picker is an ordinary move', async () => {
@@ -655,6 +972,29 @@ export default class DriverExtension extends Extension {
                 await this._drop();
             });
 
+            await this._test(`${tag}: the primary-only setting ignores other monitors' edges`, async () => {
+                await this._withSettings(toss, {monitors: 'primary'}, async () => {
+                    const a = this._find('A');
+                    place(a, primary);
+                    await sleep(300);
+                    a.activate(global.get_current_time());
+                    await sleep(100);
+                    await this._grabTitlebar(a);
+                    const farRight = primary.x === left.x;
+                    const farEdge = farRight ? right.x + right.width - 1 : left.x;
+                    await this._moveTo(farEdge, 300, {steps: 24});
+                    await sleep(ARM_SETTLE + 40);
+                    check(session().phase === 'idle', `on the other monitor: ${session().phase}`);
+
+                    const ownEdge = farRight ? left.x : right.x + right.width - 1;
+                    await this._moveTo(ownEdge, 300, {steps: 30});
+                    await sleep(ARM_SETTLE + 40);
+                    check(session().phase === 'armed', `on the primary: ${session().phase}`);
+                    await this._moveTo(primary.x + 300, 500, {steps: 24});
+                    await this._drop();
+                });
+            });
+
             if (onlyPrimary) {
                 await this._test(`${tag}: a window on the secondary monitor has no workspace to leave`, async () => {
                     const a = this._find('A');
@@ -711,8 +1051,98 @@ export default class DriverExtension extends Extension {
                 await sleep(800);
                 win.activate(global.get_current_time());
                 await sleep(400);
-                await this._shot('20-prefs');
+                await this._shot('20-prefs-area');
+                const settings = toss.stateObj.getSettings();
+                const r = rectOf(win);
+                const at = (x, y) => [r.x + x, r.y + y];
+                const gripX = 120;
+                const zone = side => [settings.get_int(`${side}-zone-start`), settings.get_int(`${side}-zone-end`)].join('-');
+                const dragFrom = async (x, y, dy) => {
+                    await this._moveTo(...at(x, y));
+                    await sleep(80);
+                    this._button(true);
+                    await sleep(60);
+                    await this._moveTo(...at(x, y + dy), {steps: 10});
+                    await sleep(60);
+                    this._button(false);
+                    await sleep(250);
+                };
+
+                // Layout measured from the screenshot: track from y=172 to y=434, default end at 67%.
+                await dragFrom(gripX, 349, -90);
+                const [, afterEnd] = zone('left').split('-').map(Number);
+                check(afterEnd > 25 && afterEnd < 45, `end grip left the zone at ${zone('left')}`);
+                check(zone('left') === zone('right'), `linked edges differ: ${zone('left')} and ${zone('right')}`);
+
+                // Slide the whole area down by dragging its middle.
+                const middle = 172 + 262 * afterEnd / 200;
+                await dragFrom(gripX, middle, 100);
+                const [slidStart, slidEnd] = zone('left').split('-').map(Number);
+                check(slidStart > 25 && slidEnd - slidStart === afterEnd, `slide left the zone at ${zone('left')}`);
+
+                // Unlinked, the edges move separately. The right grip is at the mirror position.
+                settings.set_boolean('link-edges', false);
+                await sleep(200);
+                const before = zone('left');
+                const rightGripX = 518;
+                const startY = 172 + 262 * slidStart / 100;
+                await dragFrom(rightGripX, startY, -60);
+                check(zone('left') === before, `left moved with right: ${zone('left')}`);
+                check(zone('right') !== before, 'right grip did nothing');
+                await this._shot('21-prefs-area-unlinked');
+
+                // Linking again copies the left edge across.
+                settings.set_boolean('link-edges', true);
+                await sleep(300);
+                check(zone('left') === zone('right'), `relinking left ${zone('left')} and ${zone('right')}`);
+
+                // A turned off edge can't be grabbed, and says so.
+                settings.set_boolean('right-enabled', false);
+                await sleep(200);
+                const offBefore = zone('right');
+                await dragFrom(rightGripX, startY, 40);
+                check(zone('right') === offBefore, 'dragged a turned off edge');
+                await this._shot('22-prefs-area-right-off');
+
+                await this._moveTo(...at(320, 22));
+                await sleep(80);
+                this._button(true);
+                await sleep(40);
+                this._button(false);
+                await sleep(500);
+                await this._shot('23-prefs-behaviour');
+
+                await this._moveTo(...at(470, 22));
+                await sleep(80);
+                this._button(true);
+                await sleep(40);
+                this._button(false);
+                await sleep(500);
+                await this._shot('24-prefs-timing');
+
+                // Play the timing preview, and catch it part way.
+                await this._moveTo(...at(538, 260));
+                await sleep(80);
+                this._button(true);
+                await sleep(40);
+                this._button(false);
+                await sleep(800);
+                await this._shot('25-prefs-timing-playing');
+
+                // Reset puts everything back, including what was changed above.
+                settings.set_int('hold-delay-ms', 900);
+                await sleep(150);
+                await this._moveTo(...at(320, 629));
+                await sleep(80);
+                this._button(true);
+                await sleep(40);
+                this._button(false);
+                await sleep(400);
+                check(settings.get_int('hold-delay-ms') === 350, `hold is ${settings.get_int('hold-delay-ms')}`);
+                check(zone('left') === '0-67', `left zone is ${zone('left')}`);
+                check(settings.get_boolean('right-enabled'), 'right edge stayed off');
             });
+
             this._finish(null);
             return;
         }

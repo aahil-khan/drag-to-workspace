@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist>
   <schema id="org.gnome.shell.extensions.edge-toss" path="/org/gnome/shell/extensions/edge-toss/">
+    <!-- tile-zone and tile-zone-size are unused. They stay so that a shell still running
+         version 1's code, which reads them, can't abort on a missing key after an update. -->
     <key name="tile-zone" type="s">
       <choices>
         <choice value="bottom"/>
@@ -23,7 +25,7 @@
     <key name="follow-delay-ms" type="i">
       <range min="200" max="3000"/>
       <default>1200</default>
-      <summary>How long to hold on a workspace in the picker to switch between sending and going with the window</summary>
+      <summary>How long to hold on a workspace in the picker until it swaps sending and going with the window</summary>
     </key>
     <key name="drop-action" type="s">
       <choices>
@@ -32,6 +34,88 @@
       </choices>
       <default>"stay"</default>
       <summary>What a normal drop does: leave you here, or take you with the window</summary>
+    </key>
+
+    <key name="left-enabled" type="b">
+      <default>true</default>
+      <summary>Throw from the left edge</summary>
+    </key>
+    <key name="left-zone-start" type="i">
+      <range min="0" max="95"/>
+      <default>0</default>
+      <summary>Top of the throwing area on the left edge, in percent of its height</summary>
+    </key>
+    <key name="left-zone-end" type="i">
+      <range min="5" max="100"/>
+      <default>67</default>
+      <summary>Bottom of the throwing area on the left edge, in percent of its height</summary>
+    </key>
+    <key name="right-enabled" type="b">
+      <default>true</default>
+      <summary>Throw from the right edge</summary>
+    </key>
+    <key name="right-zone-start" type="i">
+      <range min="0" max="95"/>
+      <default>0</default>
+      <summary>Top of the throwing area on the right edge, in percent of its height</summary>
+    </key>
+    <key name="right-zone-end" type="i">
+      <range min="5" max="100"/>
+      <default>67</default>
+      <summary>Bottom of the throwing area on the right edge, in percent of its height</summary>
+    </key>
+    <key name="link-edges" type="b">
+      <default>true</default>
+      <summary>Keep the throwing area the same on both edges</summary>
+    </key>
+    <key name="edge-depth" type="i">
+      <range min="1" max="150"/>
+      <default>48</default>
+      <summary>How close to the edge the pointer has to be, in pixels</summary>
+    </key>
+    <key name="monitors" type="s">
+      <choices>
+        <choice value="all"/>
+        <choice value="primary"/>
+      </choices>
+      <default>"all"</default>
+      <summary>Which monitors' edges throw windows</summary>
+    </key>
+
+    <key name="hold-to-follow" type="b">
+      <default>true</default>
+      <summary>Holding on a workspace in the picker swaps sending and going with the window</summary>
+    </key>
+    <key name="follow-modifier" type="s">
+      <choices>
+        <choice value="ctrl"/>
+        <choice value="alt"/>
+        <choice value="none"/>
+      </choices>
+      <default>"ctrl"</default>
+      <summary>Key that swaps sending and going with the window while held</summary>
+    </key>
+    <key name="offer-new-workspace" type="b">
+      <default>true</default>
+      <summary>Offer a new workspace as a target</summary>
+    </key>
+
+    <key name="show-hint" type="b">
+      <default>true</default>
+      <summary>Show the throwing area along the edge while approaching it</summary>
+    </key>
+    <key name="show-confirmation" type="b">
+      <default>true</default>
+      <summary>Briefly show where the window went</summary>
+    </key>
+    <key name="animate-throw" type="b">
+      <default>true</default>
+      <summary>Animate the window flying off the edge</summary>
+    </key>
+    <key name="card-width" type="i">
+      <range min="120" max="360"/>
+      <default>208</default>
+      <summary>Largest width of a workspace card in the picker, in pixels</summary>
     </key>
   </schema>
 </schemalist>

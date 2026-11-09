@@ -6,17 +6,29 @@ Throw a window onto another workspace by dragging it to the screen edge, without
 | --- | --- |
 | Drag to the left or right edge and drop straight away | The window goes to the next workspace on that side. You stay here. |
 | Hold at the edge | A picker opens with every workspace on that side, nearest first. Move up or down and drop. You stay here. |
-| Hold on one workspace in the picker until the bar fills | The label changes to "Go with it", and dropping takes you there too. |
-| Hold Shift while dropping | Goes with the window, at any stage. |
+| Hold on one workspace in the picker | The card fills up. When it's full it snaps to "Go with it", and dropping takes you there too. |
+| Hold Ctrl while dropping | Goes with the window straight away, at any stage. |
 | Drag back away from the edge, or press Escape | Nothing is thrown. |
 
 The window arrives where it was before the drag, at the same size, and maximized if it was maximized.
 
+Ctrl is used because GNOME treats Shift as a snap mode during a drag: it clears any pending tile and makes Mutter ignore the button release. Shift does nothing special in Edge Toss. The key can be changed to Alt or turned off.
+
+## Settings
+
+`gnome-extensions prefs edge-toss@aahil-khan.github.com`
+
+- **Area:** a drawing of the screen with the throwing area on each edge. Drag its grips to resize it or the area itself to slide it, or type exact percentages. Each edge can be turned off or set separately. Also sets how close to the edge the pointer has to be, and which monitors take part.
+- **Behaviour:** what a normal drop does, how to swap it (holding on a card, a key, or both), and whether to offer new workspaces.
+- **Timing & Look:** how long to hold before the picker opens and before a card fills, with a button that plays both at real speed. Card size, the edge hint, the confirmation label, the throw animation, and reset.
+
 ## Sharing the edge with half-tiling
 
-Dropping on the side edge used to half-tile, so the edge is split. By default the bottom third still tiles and the rest throws. A thin bar along the edge shows the throwing part as you approach. The split can be moved to the top, resized or removed in the settings. Super+Left and Super+Right are unaffected.
+Dropping on the side edge used to half-tile, so the edge is split. By default the top two thirds throw and the rest half-tiles. A thin bar along the edge shows the throwing area as you approach. Change it in the Area settings.
 
-GNOME keeps the edge whenever there is nothing to throw to, for example on the last workspace with static workspaces, or for the only window on a workspace with nothing but a new workspace next to it.
+GNOME half-tiles within 48 pixels of the edge. Setting the distance below that gives another way to share: drop near the edge to half-tile, or push all the way to the edge to throw.
+
+Outside the throwing area, GNOME keeps the edge. So it does wherever there is nothing to throw to, for example on the last workspace with static workspaces, or for the only window on a workspace with nothing but a new workspace next to it.
 
 ## Edge cases
 
@@ -41,7 +53,6 @@ On Wayland the shell only finds new extensions at login, so log out and back in,
 
 ```sh
 gnome-extensions enable edge-toss@aahil-khan.github.com
-gnome-extensions prefs edge-toss@aahil-khan.github.com
 ```
 
 ## Development

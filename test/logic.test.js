@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-    Phase, findEdge, isTossHeight, tossSpan, computeTargets, layoutPicker, cardAt, DragSession,
+    Phase, findEdge, isTossHeight, tossSpan, moveZone, zonePartAt, captionFor,
+    computeTargets, layoutPicker, cardAt, DragSession,
 } from '../lib/logic.js';
 
 const mon = (x, y, width, height, panel = 32) => ({
@@ -54,17 +55,54 @@ test('findEdge: a dock moves the band with the work area', () => {
     assert.equal(findEdge(118, 300, docked, BAND), null);
 });
 
-test('isTossHeight and tossSpan agree on the tiling zone', () => {
-    assert.equal(isTossHeight(0.6, 'bottom', 33), true);
-    assert.equal(isTossHeight(0.7, 'bottom', 33), false);
-    assert.equal(isTossHeight(0.2, 'top', 33), false);
-    assert.equal(isTossHeight(0.4, 'top', 33), true);
-    assert.equal(isTossHeight(0.99, 'none', 33), true);
+test('isTossHeight and tossSpan agree on the zone', () => {
+    const zone = {start: 0.4, end: 0.7};
+    assert.equal(isTossHeight(0.39, zone), false);
+    assert.equal(isTossHeight(0.4, zone), true);
+    assert.equal(isTossHeight(0.69, zone), true);
+    assert.equal(isTossHeight(0.7, zone), false);
+    assert.equal(isTossHeight(1, {start: 0, end: 1}), true);
 
-    const wa = {x: 0, y: 0, width: 1600, height: 1000};
-    assert.deepEqual(tossSpan(wa, 'bottom', 30), {y: 0, height: 700});
-    assert.deepEqual(tossSpan(wa, 'top', 30), {y: 300, height: 700});
-    assert.deepEqual(tossSpan(wa, 'none', 30), {y: 0, height: 1000});
+    assert.deepEqual(tossSpan({x: 0, y: 100, width: 1600, height: 1000}, zone), {y: 500, height: 300});
+});
+
+test('moveZone: handles stop short of each other and of the ends', () => {
+    const zone = {start: 20, end: 60};
+    assert.deepEqual(moveZone(zone, 'start', 30.4), {start: 30, end: 60});
+    assert.deepEqual(moveZone(zone, 'start', 90), {start: 55, end: 60});
+    assert.deepEqual(moveZone(zone, 'start', -10), {start: 0, end: 60});
+    assert.deepEqual(moveZone(zone, 'end', 5), {start: 20, end: 25});
+    assert.deepEqual(moveZone(zone, 'end', 140), {start: 20, end: 100});
+});
+
+test('moveZone: sliding the body keeps its size', () => {
+    const zone = {start: 20, end: 60};
+    assert.deepEqual(moveZone(zone, 'body', 50), {start: 50, end: 90});
+    assert.deepEqual(moveZone(zone, 'body', 90), {start: 60, end: 100});
+    assert.deepEqual(moveZone(zone, 'body', -5), {start: 0, end: 40});
+});
+
+test('zonePartAt: finds the nearest handle, then the body, then nothing', () => {
+    const zone = {start: 20, end: 60};
+    assert.equal(zonePartAt(22, zone, 4), 'start');
+    assert.equal(zonePartAt(58, zone, 4), 'end');
+    assert.equal(zonePartAt(40, zone, 4), 'body');
+    assert.equal(zonePartAt(80, zone, 4), null);
+    assert.equal(zonePartAt(21, {start: 20, end: 25}, 4), 'start');
+    assert.equal(zonePartAt(24, {start: 20, end: 25}, 4), 'end');
+});
+
+test('captionFor says what a drop does, and what holding on will do', () => {
+    const stay = {dropAction: 'stay', cardWidth: 208};
+    assert.equal(captionFor({...stay, followProgress: 0, flipped: false}), 'Send here');
+    assert.equal(captionFor({...stay, followProgress: 0.5, flipped: false}), 'Hold to go with it');
+    assert.equal(captionFor({...stay, followProgress: 1, flipped: true}), 'Go with it');
+    assert.equal(captionFor({...stay, cardWidth: 104, followProgress: 0.5, flipped: false}), 'Hold\u2026');
+
+    const follow = {dropAction: 'follow', cardWidth: 208};
+    assert.equal(captionFor({...follow, followProgress: 0, flipped: false}), 'Go with it');
+    assert.equal(captionFor({...follow, followProgress: 0.5, flipped: false}), 'Hold to stay here');
+    assert.equal(captionFor({...follow, followProgress: 1, flipped: true}), 'Send here');
 });
 
 test('computeTargets: right is nearest first and marks the empty last one as new', () => {
@@ -88,6 +126,12 @@ test('computeTargets: a lone window has no use for a new workspace', () => {
     const args = {count: 2, dynamic: true, lastIsEmpty: true, windowAlone: true, activeIndex: 0};
     assert.deepEqual(computeTargets({...args, side: 'right'}), []);
     assert.deepEqual(computeTargets({...args, side: 'left'}), []);
+});
+
+test('computeTargets: new workspaces can be turned off', () => {
+    const args = {count: 3, dynamic: true, lastIsEmpty: true, windowAlone: false, offerNew: false};
+    assert.deepEqual(computeTargets({...args, activeIndex: 1, side: 'right'}), []);
+    assert.deepEqual(computeTargets({...args, activeIndex: 1, side: 'left'}), [{index: 0, isNew: false}]);
 });
 
 test('layoutPicker: many workspaces shrink to fit, few keep full size', () => {
@@ -122,11 +166,11 @@ test('quick drop: goes to the next workspace and stays here', () => {
     assert.deepEqual(s.decide(), {target: {index: 1, isNew: false}, follow: false});
 });
 
-test('quick drop with Shift goes with the window', () => {
+test('quick drop with the modifier goes with the window', () => {
     assert.equal(armedAt(session()).decide(true).follow, true);
 });
 
-test('drop-action "follow" inverts Shift', () => {
+test('drop-action "follow" inverts the modifier', () => {
     const s = armedAt(session({dropAction: 'follow'}));
     assert.equal(s.decide().follow, true);
     assert.equal(s.decide(true).follow, false);
@@ -156,6 +200,64 @@ test('sliding along the edge into the tiling part disarms', () => {
     const s = armedAt(session());
     s.update(1599, 900, 10, single);
     assert.equal(s.phase, Phase.IDLE);
+});
+
+test('a custom zone: only that part of the edge arms', () => {
+    const zones = {
+        left: {enabled: true, start: 0, end: 1},
+        right: {enabled: true, start: 0.4, end: 0.6},
+    };
+    const s = session({zones});
+    s.update(800, 300, 0, single);
+    s.update(1599, 300, 10, single);
+    assert.equal(s.phase, Phase.IDLE);
+    s.update(1599, 500, 20, single);
+    assert.equal(s.phase, Phase.ARMED);
+    s.update(1599, 700, 30, single);
+    assert.equal(s.phase, Phase.IDLE);
+
+    s.update(800, 950, 40, single);
+    s.update(0, 950, 50, single);
+    assert.equal(s.side, 'left');
+});
+
+test('a turned off edge neither arms nor hints', () => {
+    const zones = {
+        left: {enabled: true, start: 0, end: 1},
+        right: {enabled: false, start: 0, end: 1},
+    };
+    const s = session({zones});
+    s.update(800, 300, 0, single);
+    s.update(1450, 300, 5, single);
+    assert.equal(s.hint, null);
+    s.update(1599, 300, 10, single);
+    assert.equal(s.phase, Phase.IDLE);
+    s.update(0, 300, 20, single);
+    assert.equal(s.phase, Phase.ARMED);
+});
+
+test('monitors can be excluded', () => {
+    const two = [mon(0, 0, 1600, 1000), mon(1600, 0, 1600, 1000)];
+    const s = session({allowMonitor: i => i === 0});
+    s.update(800, 300, 0, two);
+    s.update(3199, 300, 10, two);
+    assert.equal(s.phase, Phase.IDLE);
+    s.update(0, 300, 20, two);
+    assert.equal(s.phase, Phase.ARMED);
+});
+
+test('the edge depth decides how close the pointer has to be', () => {
+    const shallow = session({band: 8});
+    shallow.update(800, 300, 0, single);
+    shallow.update(1570, 300, 10, single);
+    assert.equal(shallow.phase, Phase.IDLE);
+    shallow.update(1595, 300, 20, single);
+    assert.equal(shallow.phase, Phase.ARMED);
+
+    const deep = session({band: 120});
+    deep.update(800, 300, 0, single);
+    deep.update(1500, 300, 10, single);
+    assert.equal(deep.phase, Phase.ARMED);
 });
 
 test('no targets on that side leaves the edge to GNOME', () => {
@@ -192,6 +294,36 @@ test('moving up and down the picker chooses a far workspace', () => {
     s.update(1599, third.y + 5, 400, single);
     assert.equal(s.selected, 2);
     assert.deepEqual(s.decide(), {target: {index: 3, isNew: true}, follow: false});
+});
+
+test('going with the window loads up steadily after a short pause', () => {
+    const s = armedAt(session({followDelay: 1250}));
+    s.update(1599, 300, 360, single);
+    s.update(1599, 300, 360 + 200, single);
+    assert.equal(s.followProgress, 0);
+
+    s.update(1599, 300, 360 + 250 + 500, single);
+    assert.ok(Math.abs(s.followProgress - 0.5) < 0.001);
+    assert.equal(s.isFlipped(), false);
+
+    s.update(1599, 300, 360 + 1250, single);
+    assert.equal(s.followProgress, 1);
+    assert.equal(s.isFlipped(), true);
+});
+
+test('hold-to-follow can be turned off', () => {
+    const s = armedAt(session({holdToFollow: false}));
+    s.update(1599, 300, 360, single);
+    s.update(1599, 300, 9000, single);
+    assert.equal(s.followProgress, 0);
+    assert.equal(s.decide().follow, false);
+    assert.equal(s.decide(true).follow, true);
+});
+
+test('card size is configurable', () => {
+    const s = armedAt(session({cardWidth: 300}));
+    s.update(1599, 300, 360, single);
+    assert.equal(s.layout.cardWidth, 300);
 });
 
 test('holding on a card switches to going with the window, and moving resets it', () => {

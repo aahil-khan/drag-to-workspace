@@ -8,5 +8,6 @@
     "51"
   ],
   "settings-schema": "org.gnome.shell.extensions.edge-toss",
-  "url": "https://github.com/aahil-khan/edge-toss"
+  "url": "https://github.com/aahil-khan/edge-toss",
+  "gettext-domain": "edge-toss"
 }

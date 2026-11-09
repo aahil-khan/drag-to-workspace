@@ -1,7 +1,7 @@
 UUID := edge-toss@aahil-khan.github.com
 EXT_DIR := $(HOME)/.local/share/gnome-shell/extensions/$(UUID)
 
-.PHONY: test schemas e2e install uninstall pack matrix
+.PHONY: test schemas e2e install uninstall pack matrix pot
 
 test:
 	node --test test/logic.test.js
@@ -27,3 +27,9 @@ pack:
 # The end-to-end tests against each zip, on the distros it targets, in containers.
 matrix: pack
 	test/e2e/matrix.sh
+
+# Regenerates the template that translations in po/ are made from.
+pot:
+	xgettext --from-code=UTF-8 --language=JavaScript --keyword=_ --add-comments \
+		--package-name=edge-toss --output=po/edge-toss.pot \
+		extension.js prefs.js lib/*.js prefs/*.js

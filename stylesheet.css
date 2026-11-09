@@ -75,3 +75,41 @@
   background-color: #ffffff;
   color: #1e1e22;
 }
+
+.edge-toss-card-top {
+  spacing: 6px;
+}
+
+.edge-toss-card-icons {
+  background-color: rgba(20, 20, 24, 0.86);
+  border-radius: 7px;
+  padding: 3px 5px;
+  spacing: 4px;
+}
+
+.edge-toss-popup {
+  background-color: rgba(30, 30, 34, 0.96);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  padding: 6px 8px 6px 14px;
+  spacing: 8px;
+  font-size: 11pt;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+}
+
+.edge-toss-popup-button {
+  background-color: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  border-radius: 8px;
+  padding: 4px 12px;
+  font-weight: bold;
+}
+
+.edge-toss-popup-button:hover {
+  background-color: rgba(255, 255, 255, 0.24);
+}
+
+.edge-toss-popup-button:active {
+  background-color: rgba(255, 255, 255, 0.32);
+}

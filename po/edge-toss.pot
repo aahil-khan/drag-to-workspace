@@ -1,0 +1,431 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the edge-toss package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: edge-toss\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-11-09 20:28+0530\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: prefs.js:38
+msgid "Zone Top (%)"
+msgstr ""
+
+#: prefs.js:39
+msgid "Zone Bottom (%)"
+msgstr ""
+
+#: prefs.js:46
+msgid "Preview Timing"
+msgstr ""
+
+#: prefs.js:47
+msgid "Plays both delays at their real speed"
+msgstr ""
+
+#: prefs.js:57
+msgid "Play"
+msgstr ""
+
+#: prefs.js:101
+msgid "Zones"
+msgstr ""
+
+#: prefs.js:104
+msgid "Move Zones"
+msgstr ""
+
+#: prefs.js:105
+msgid ""
+"Drop a window in a zone to move it to another workspace. Drag the white "
+"handles or the zone itself to adjust it."
+msgstr ""
+
+#: prefs.js:112
+msgid "Screen Edges"
+msgstr ""
+
+#: prefs.js:113
+msgid "Use the Same Zone on Both Edges"
+msgstr ""
+
+#: prefs.js:114
+msgid "Left Edge"
+msgstr ""
+
+#: prefs.js:115
+msgid "Right Edge"
+msgstr ""
+
+#: prefs.js:125
+msgid "Hold-Only Edges"
+msgstr ""
+
+#: prefs.js:126
+msgid ""
+"Windows pass through these edges all the time, so they need a longer hold. "
+"Dropping without choosing a workspace does what it normally would."
+msgstr ""
+
+#: prefs.js:128
+msgid "Top Edge"
+msgstr ""
+
+#: prefs.js:129
+msgid "Shows every workspace, on both sides of the current one"
+msgstr ""
+
+#: prefs.js:130
+msgid "Edges Between Monitors"
+msgstr ""
+
+#: prefs.js:131
+msgid "Opens the workspace picker without crossing to the other monitor"
+msgstr ""
+
+#: prefs.js:134
+msgid "Activation"
+msgstr ""
+
+#: prefs.js:135
+msgid "Distance from Edge"
+msgstr ""
+
+#: prefs.js:136
+msgid ""
+"How close to the screen edge the pointer must be, in pixels. With a small "
+"value, windows tile near the edge and move when pushed right up to it."
+msgstr ""
+
+#: prefs.js:138
+msgid "Monitors"
+msgstr ""
+
+#: prefs.js:139
+msgid "Which monitors these edges work on"
+msgstr ""
+
+#: prefs.js:140
+msgid "All Monitors"
+msgstr ""
+
+#: prefs.js:141
+msgid "Primary Only"
+msgstr ""
+
+#: prefs.js:148
+msgid "Behaviour"
+msgstr ""
+
+#: prefs.js:150
+msgid "After Moving a Window"
+msgstr ""
+
+#: prefs.js:151
+msgid "When You Drop a Window"
+msgstr ""
+
+#: prefs.js:152
+msgid "What happens to your view when a window moves"
+msgstr ""
+
+#: prefs.js:153
+msgid "Stay on This Workspace"
+msgstr ""
+
+#: prefs.js:154
+msgid "Go With the Window"
+msgstr ""
+
+#: prefs.js:159
+msgid "Doing the Opposite"
+msgstr ""
+
+#: prefs.js:160
+msgid "Ways to choose the other option for a single move"
+msgstr ""
+
+#: prefs.js:162
+msgid "Hold Over a Workspace"
+msgstr ""
+
+#: prefs.js:163
+msgid "Keep the pointer on a workspace in the picker until it fills up"
+msgstr ""
+
+#: prefs.js:164
+msgid "Hold a Key While Dropping"
+msgstr ""
+
+#: prefs.js:165
+msgid "Ctrl is recommended, as releasing Alt opens the menu bar in some apps"
+msgstr ""
+
+#: prefs.js:166 prefs.js:180
+msgid "Ctrl"
+msgstr ""
+
+#: prefs.js:167 prefs.js:179
+msgid "Alt"
+msgstr ""
+
+#: prefs.js:168 prefs.js:181
+msgid "None"
+msgstr ""
+
+#: prefs.js:170
+msgid "Right-Click While Dragging"
+msgstr ""
+
+#: prefs.js:171
+msgid ""
+"Moves the window right away and always takes you with it when you let go"
+msgstr ""
+
+#: prefs.js:174
+msgid "While Dragging"
+msgstr ""
+
+#: prefs.js:175
+msgid "Number Keys Choose a Workspace"
+msgstr ""
+
+#: prefs.js:176
+msgid ""
+"Press 1 to 9 while dragging, then drop anywhere. Press the same number again "
+"to cancel."
+msgstr ""
+
+#: prefs.js:177
+msgid "Move All of an App’s Windows"
+msgstr ""
+
+#: prefs.js:178
+msgid ""
+"Hold this key while dropping to bring the app’s other windows on this "
+"workspace too. Has no effect if it’s the same key as above."
+msgstr ""
+
+#: prefs.js:185
+msgid "Workspaces"
+msgstr ""
+
+#: prefs.js:186
+msgid "Offer a New Workspace"
+msgstr ""
+
+#: prefs.js:187
+msgid ""
+"Lets you move a window to a new, empty workspace when using dynamic "
+"workspaces"
+msgstr ""
+
+#: prefs.js:193
+msgid "Look & Feel"
+msgstr ""
+
+#: prefs.js:195
+msgid "Timing"
+msgstr ""
+
+#: prefs.js:196
+msgid "Workspace Picker Delay"
+msgstr ""
+
+#: prefs.js:197
+msgid ""
+"Time to hold at the edge before the picker opens, in milliseconds. Dropping "
+"sooner moves the window to the next workspace."
+msgstr ""
+
+#: prefs.js:198
+msgid "Hold Over Workspace Time"
+msgstr ""
+
+#: prefs.js:199
+msgid "Time for a workspace in the picker to fill up, in milliseconds"
+msgstr ""
+
+#: prefs.js:205
+msgid "Appearance"
+msgstr ""
+
+#: prefs.js:206
+msgid "Workspace Preview Size"
+msgstr ""
+
+#: prefs.js:207
+msgid ""
+"Maximum width in pixels. Previews shrink to fit when there are many "
+"workspaces."
+msgstr ""
+
+#: prefs.js:208
+msgid "Show Workspace Names"
+msgstr ""
+
+#: prefs.js:209
+msgid "Adds any names you’ve given your workspaces to their previews"
+msgstr ""
+
+#: prefs.js:210
+msgid "Show App Icons"
+msgstr ""
+
+#: prefs.js:211
+msgid "Shows which apps are on each workspace"
+msgstr ""
+
+#: prefs.js:212
+msgid "Highlight Zones While Dragging"
+msgstr ""
+
+#: prefs.js:213
+msgid "Shows a thin bar along the edge as a window gets close"
+msgstr ""
+
+#: prefs.js:214
+msgid "Show Undo and Go Buttons"
+msgstr ""
+
+#: prefs.js:215
+msgid ""
+"Briefly shows where a window went, with buttons to undo the move or go there"
+msgstr ""
+
+#: prefs.js:216
+msgid "Animate Moved Windows"
+msgstr ""
+
+#: prefs.js:217
+msgid "The window slides off the edge of the screen"
+msgstr ""
+
+#: prefs.js:221
+msgid "Reset All Settings"
+msgstr ""
+
+#: prefs.js:225
+msgid "Settings reset to defaults"
+msgstr ""
+
+#: lib/movedPopup.js:22
+msgid "Undo"
+msgstr ""
+
+#: lib/movedPopup.js:23
+msgid "Go"
+msgstr ""
+
+#: lib/ui.js:30
+msgid "Send here"
+msgstr ""
+
+#: lib/ui.js:32 lib/ui.js:117 lib/ui.js:179
+msgid "Go with it"
+msgstr ""
+
+#: lib/ui.js:34
+msgid "Hold to go with it"
+msgstr ""
+
+#: lib/ui.js:36
+msgid "Hold to stay here"
+msgstr ""
+
+#: lib/ui.js:38
+msgid "Hold…"
+msgstr ""
+
+#: lib/ui.js:115
+msgid "Hold for workspaces"
+msgstr ""
+
+#: lib/ui.js:118 lib/ui.js:177
+msgid "All windows"
+msgstr ""
+
+#: lib/ui.js:173
+msgid "Move to a new workspace"
+msgstr ""
+
+#: lib/ui.js:174
+#, javascript-format
+msgid "Move to workspace %d"
+msgstr ""
+
+#: lib/ui.js:206
+#, javascript-format
+msgid "All windows: %s"
+msgstr ""
+
+#: lib/ui.js:310
+#, javascript-format
+msgid "Moved to a new workspace (%d windows)"
+msgstr ""
+
+#: lib/ui.js:310
+msgid "Moved to a new workspace"
+msgstr ""
+
+#: lib/ui.js:312
+#, javascript-format
+msgid "Moved to %s (%d windows)"
+msgstr ""
+
+#: lib/ui.js:312
+#, javascript-format
+msgid "Moved to %s"
+msgstr ""
+
+#: prefs/excludedApps.js:17 prefs/excludedApps.js:69
+msgid "Add an App"
+msgstr ""
+
+#: prefs/excludedApps.js:35
+msgid "Search apps"
+msgstr ""
+
+#: prefs/excludedApps.js:60
+msgid "Apps"
+msgstr ""
+
+#: prefs/excludedApps.js:62
+msgid "Excluded Apps"
+msgstr ""
+
+#: prefs/excludedApps.js:63
+msgid ""
+"Windows of these apps can be dragged to the screen edges as usual, but never "
+"move to another workspace."
+msgstr ""
+
+#: prefs/excludedApps.js:89
+msgid "Remove"
+msgstr ""
+
+#: prefs/excludedApps.js:100
+msgid "No apps excluded"
+msgstr ""
+
+#: prefs/zoneEditor.js:202
+msgid "Off"
+msgstr ""
+
+#: prefs/zoneEditor.js:223
+msgid "Moves"
+msgstr ""
+
+#: prefs/zoneEditor.js:225 prefs/zoneEditor.js:227
+msgid "Tiles"
+msgstr ""

@@ -29,8 +29,12 @@ build() {
             s/-st-accent-color/#3584e4/g; s/-st-accent-fg-color/#ffffff/g' "$src/stylesheet.css"
     fi
 
+    local translations=()
+    if compgen -G "$ROOT/po/*.po" >/dev/null; then
+        translations=(--podir="$ROOT/po")
+    fi
     (cd "$src" && gnome-extensions pack --force --out-dir="$ROOT/dist/$name" \
-        --extra-source=lib --extra-source=prefs --schema="$SCHEMA" .)
+        --extra-source=lib --extra-source=prefs --schema="$SCHEMA" "${translations[@]}" .)
     mv "$ROOT/dist/$name/edge-toss@aahil-khan.github.com.shell-extension.zip" \
         "$ROOT/dist/edge-toss-gnome-$name.zip"
     echo "dist/edge-toss-gnome-$name.zip  ($versions)"

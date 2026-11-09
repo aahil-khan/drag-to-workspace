@@ -1,267 +1,14 @@
 import Adw from 'gi://Adw';
-import GLib from 'gi://GLib';
-import GObject from 'gi://GObject';
 import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
 import Gtk from 'gi://Gtk';
-import PangoCairo from 'gi://PangoCairo';
 
-import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
+import {ExtensionPreferences, gettext as _} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
-import {moveZone, zonePartAt} from './lib/logic.js';
-import {accentColor} from './prefs/accent.js';
-
-const SCREEN_ASPECT = 16 / 10;
-const STRIP_WIDTH = 30;
-const STRIP_INSET = 10;
-const PANEL_HEIGHT = 12;
-const HANDLE_HEIGHT = 8;
-const HANDLE_TOLERANCE = 14;
-
-function readZone(settings, side) {
-    return {
-        start: settings.get_int(`${side}-zone-start`),
-        end: settings.get_int(`${side}-zone-end`),
-    };
-}
-
-/** Writes a zone, to both sides while they're linked. */
-function writeZone(settings, side, zone) {
-    const sides = settings.get_boolean('link-edges') ? ['left', 'right'] : [side];
-    for (const s of sides) {
-        settings.set_int(`${s}-zone-end`, zone.end);
-        settings.set_int(`${s}-zone-start`, zone.start);
-    }
-}
-
-/**
- * A little screen with the two edges on it. Drag a handle to resize a zone, or drag the
- * zone itself to slide it along the edge.
- */
-const ZoneEditor = GObject.registerClass(
-class EdgeTossZoneEditor extends Gtk.DrawingArea {
-    constructor(settings) {
-        super({
-            content_height: 280,
-            hexpand: true,
-            margin_top: 14,
-            margin_bottom: 14,
-            accessible_role: Gtk.AccessibleRole.IMG,
-        });
-        this._settings = settings;
-        this._active = null;
-        this.set_draw_func((_area, cr, width, height) => {
-            this._draw(cr, width, height);
-            cr.$dispose();
-        });
-
-        const redraw = () => this.queue_draw();
-        for (const key of ['left-enabled', 'right-enabled', 'left-zone-start', 'left-zone-end',
-            'right-zone-start', 'right-zone-end'])
-            settings.connect(`changed::${key}`, redraw);
-        Adw.StyleManager.get_default().connect('notify::dark', redraw);
-
-        const drag = new Gtk.GestureDrag();
-        drag.connect('drag-begin', (_g, x, y) => this._onDragBegin(x, y));
-        drag.connect('drag-update', (_g, dx, dy) => this._onDragUpdate(dy));
-        drag.connect('drag-end', () => {
-            this._active = null;
-            this.queue_draw();
-        });
-        this.add_controller(drag);
-
-        const motion = new Gtk.EventControllerMotion();
-        motion.connect('motion', (_c, x, y) => this._onMotion(x, y));
-        this.add_controller(motion);
-    }
-
-    _screen(width, height) {
-        const h = Math.min(height, (width - 8) / SCREEN_ASPECT);
-        const w = h * SCREEN_ASPECT;
-        const x = (width - w) / 2;
-        const y = (height - h) / 2;
-        return {x, y, w, h, top: y + PANEL_HEIGHT + 4, trackHeight: h - PANEL_HEIGHT - 12};
-    }
-
-    _stripX(side, screen) {
-        return side === 'left'
-            ? screen.x + STRIP_INSET
-            : screen.x + screen.w - STRIP_INSET - STRIP_WIDTH;
-    }
-
-    _hit(x, y) {
-        const screen = this._screen(this.get_width(), this.get_height());
-        const side = ['left', 'right'].find(s => {
-            const stripX = this._stripX(s, screen);
-            return x >= stripX - 12 && x <= stripX + STRIP_WIDTH + 12;
-        });
-        if (!side || !this._settings.get_boolean(`${side}-enabled`))
-            return null;
-
-        const percent = (y - screen.top) / screen.trackHeight * 100;
-        const tolerance = HANDLE_TOLERANCE / screen.trackHeight * 100;
-        const part = zonePartAt(percent, readZone(this._settings, side), tolerance);
-        return part ? {side, part} : null;
-    }
-
-    _onMotion(x, y) {
-        if (this._active)
-            return;
-        const hit = this._hit(x, y);
-        if (!hit)
-            this.set_cursor_from_name(null);
-        else
-            this.set_cursor_from_name(hit.part === 'body' ? 'grab' : 'ns-resize');
-    }
-
-    _onDragBegin(x, y) {
-        const hit = this._hit(x, y);
-        this._active = hit ? {...hit, zone: readZone(this._settings, hit.side)} : null;
-        this.queue_draw();
-    }
-
-    _onDragUpdate(dy) {
-        if (!this._active)
-            return;
-        const {side, part, zone} = this._active;
-        const screen = this._screen(this.get_width(), this.get_height());
-        const delta = dy / screen.trackHeight * 100;
-        const from = part === 'end' ? zone.end : zone.start;
-        writeZone(this._settings, side, moveZone(zone, part, from + delta));
-    }
-
-    _text(cr, text, x, y, align, color) {
-        const layout = this.create_pango_layout(text);
-        const [, logical] = layout.get_pixel_extents();
-        cr.setSourceRGBA(color.red, color.green, color.blue, color.alpha);
-        const left = align === 'right' ? x - logical.width : x;
-        cr.moveTo(left, y - logical.height / 2);
-        PangoCairo.show_layout(cr, layout);
-    }
-
-    _roundRect(cr, x, y, w, h, r) {
-        cr.newSubPath();
-        cr.arc(x + w - r, y + r, r, -Math.PI / 2, 0);
-        cr.arc(x + w - r, y + h - r, r, 0, Math.PI / 2);
-        cr.arc(x + r, y + h - r, r, Math.PI / 2, Math.PI);
-        cr.arc(x + r, y + r, r, Math.PI, 1.5 * Math.PI);
-        cr.closePath();
-    }
-
-    _draw(cr, width, height) {
-        const fg = this.get_color();
-        const accent = accentColor();
-        const neutral = alpha => cr.setSourceRGBA(fg.red, fg.green, fg.blue, alpha);
-        const screen = this._screen(width, height);
-
-        this._roundRect(cr, screen.x, screen.y, screen.w, screen.h, 10);
-        neutral(0.07);
-        cr.fillPreserve();
-        neutral(0.25);
-        cr.setLineWidth(1);
-        cr.stroke();
-
-        // Top bar, and a window for scale.
-        neutral(0.12);
-        this._roundRect(cr, screen.x + 1, screen.y + 1, screen.w - 2, PANEL_HEIGHT, 6);
-        cr.fill();
-        const winW = screen.w * 0.34;
-        const winH = screen.h * 0.36;
-        const winX = screen.x + (screen.w - winW) / 2;
-        const winY = screen.y + screen.h * 0.5 - winH / 2;
-        this._roundRect(cr, winX, winY, winW, winH, 6);
-        neutral(0.1);
-        cr.fillPreserve();
-        neutral(0.3);
-        cr.stroke();
-        neutral(0.18);
-        cr.rectangle(winX + 1, winY + 12, winW - 2, 1);
-        cr.fill();
-
-        for (const side of ['left', 'right'])
-            this._drawEdge(cr, side, screen, fg, accent);
-    }
-
-    _drawEdge(cr, side, screen, fg, accent) {
-        const enabled = this._settings.get_boolean(`${side}-enabled`);
-        const zone = readZone(this._settings, side);
-        const x = this._stripX(side, screen);
-        const {top, trackHeight} = screen;
-        const y1 = top + trackHeight * zone.start / 100;
-        const y2 = top + trackHeight * zone.end / 100;
-
-        const labelAlign = side === 'left' ? 'left' : 'right';
-        const labelX = side === 'left' ? x + STRIP_WIDTH + 10 : x - 10;
-        const dim = {red: fg.red, green: fg.green, blue: fg.blue, alpha: 0.6};
-
-        // The whole edge, which GNOME keeps wherever Edge Toss doesn't.
-        this._roundRect(cr, x, top, STRIP_WIDTH, trackHeight, 7);
-        cr.setSourceRGBA(fg.red, fg.green, fg.blue, 0.14);
-        cr.fill();
-
-        if (!enabled) {
-            this._text(cr, 'Off', labelX, top + trackHeight / 2, labelAlign, dim);
-            return;
-        }
-
-        const lift = this._active?.side === side ? 1 : 0.85;
-        cr.setSourceRGBA(accent.red, accent.green, accent.blue, lift);
-        this._roundRect(cr, x, y1, STRIP_WIDTH, y2 - y1, 7);
-        cr.fill();
-
-        // Grips, one at each end of the area.
-        for (const y of [y1, y2]) {
-            const gripY = Math.max(Math.min(y, top + trackHeight - HANDLE_HEIGHT / 2), top + HANDLE_HEIGHT / 2);
-            this._roundRect(cr, x - 4, gripY - HANDLE_HEIGHT / 2, STRIP_WIDTH + 8, HANDLE_HEIGHT, 4);
-            cr.setSourceRGBA(1, 1, 1, 1);
-            cr.fillPreserve();
-            cr.setSourceRGBA(0, 0, 0, 0.35);
-            cr.setLineWidth(1);
-            cr.stroke();
-        }
-
-        if (y2 - y1 > 34)
-            this._text(cr, 'Moves', labelX, (y1 + y2) / 2, labelAlign, fg);
-        if (y1 - top > 34)
-            this._text(cr, 'Tiles', labelX, (top + y1) / 2, labelAlign, dim);
-        if (top + trackHeight - y2 > 34)
-            this._text(cr, 'Tiles', labelX, (y2 + top + trackHeight) / 2, labelAlign, dim);
-    }
-});
-
-function switchRow(settings, key, title, subtitle) {
-    const row = new Adw.SwitchRow({title, subtitle});
-    settings.bind(key, row, 'active', Gio.SettingsBindFlags.DEFAULT);
-    return row;
-}
-
-function comboRow(settings, key, title, subtitle, choices) {
-    const row = new Adw.ComboRow({
-        title,
-        subtitle,
-        model: Gtk.StringList.new(choices.map(c => c.label)),
-    });
-    const sync = () => {
-        row.selected = Math.max(choices.findIndex(c => c.value === settings.get_string(key)), 0);
-    };
-    sync();
-    settings.connect(`changed::${key}`, sync);
-    row.connect('notify::selected', () => {
-        const value = choices[row.selected].value;
-        if (settings.get_string(key) !== value)
-            settings.set_string(key, value);
-    });
-    return row;
-}
-
-function spinRow(settings, key, title, subtitle, lower, upper, step) {
-    const row = new Adw.SpinRow({
-        title,
-        subtitle,
-        adjustment: new Gtk.Adjustment({lower, upper, step_increment: step, page_increment: step * 5}),
-    });
-    settings.bind(key, row, 'value', Gio.SettingsBindFlags.DEFAULT);
-    return row;
-}
+import {moveZone} from './lib/logic.js';
+import {excludedAppsPage} from './prefs/excludedApps.js';
+import {comboRow, spinRow, switchRow} from './prefs/rows.js';
+import {readZone, writeZone, ZoneEditor} from './prefs/zoneEditor.js';
 
 /** A percent row for one end of a zone, kept valid against the other end. */
 function zoneSpinRow(settings, side, part, title) {
@@ -288,16 +35,16 @@ function zoneSpinRow(settings, side, part, title) {
 function edgeRow(settings, side, title) {
     const row = new Adw.ExpanderRow({title, show_enable_switch: true, expanded: true});
     settings.bind(`${side}-enabled`, row, 'enable-expansion', Gio.SettingsBindFlags.DEFAULT);
-    row.add_row(zoneSpinRow(settings, side, 'start', 'Zone Top (%)'));
-    row.add_row(zoneSpinRow(settings, side, 'end', 'Zone Bottom (%)'));
+    row.add_row(zoneSpinRow(settings, side, 'start', _('Zone Top (%)')));
+    row.add_row(zoneSpinRow(settings, side, 'end', _('Zone Bottom (%)')));
     return row;
 }
 
 /** Runs the two holds at their real speed, since milliseconds are hard to imagine. */
 function timingPreviewRow(settings) {
     const row = new Adw.ActionRow({
-        title: 'Preview Timing',
-        subtitle: 'Plays both delays at their real speed',
+        title: _('Preview Timing'),
+        subtitle: _('Plays both delays at their real speed'),
     });
 
     const box = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, spacing: 4, valign: Gtk.Align.CENTER, width_request: 150});
@@ -307,7 +54,7 @@ function timingPreviewRow(settings) {
     box.append(followBar);
     row.add_suffix(box);
 
-    const button = new Gtk.Button({label: 'Play', valign: Gtk.Align.CENTER});
+    const button = new Gtk.Button({label: _('Play'), valign: Gtk.Align.CENTER});
     row.add_suffix(button);
 
     let tickId = 0;
@@ -343,30 +90,29 @@ export default class EdgeTossPreferences extends ExtensionPreferences {
         const settings = this.getSettings();
         // Keeps it alive for as long as the window is open.
         window._settings = settings;
-        window.set_default_size(640, 800);
-        window.add(this._areaPage(settings));
+        window.set_default_size(680, 800);
+        window.add(this._zonesPage(settings));
         window.add(this._behaviourPage(settings));
         window.add(this._timingPage(settings, window));
+        window.add(excludedAppsPage(settings));
     }
 
-    _areaPage(settings) {
-        const page = new Adw.PreferencesPage({title: 'Zones', icon_name: 'view-fullscreen-symbolic'});
+    _zonesPage(settings) {
+        const page = new Adw.PreferencesPage({title: _('Zones'), icon_name: 'view-fullscreen-symbolic'});
 
         const editor = new Adw.PreferencesGroup({
-            title: 'Move Zones',
-            description: 'Drop a window in a zone to move it to another workspace. Drag the white handles or the zone itself to adjust it.',
+            title: _('Move Zones'),
+            description: _('Drop a window in a zone to move it to another workspace. Drag the white handles or the zone itself to adjust it.'),
         });
         const frame = new Gtk.Box({css_classes: ['card']});
         frame.append(new ZoneEditor(settings));
         editor.add(frame);
         page.add(editor);
 
-        const edges = new Adw.PreferencesGroup({title: 'Screen Edges'});
-        const link = switchRow(settings, 'link-edges', 'Use the Same Zone on Both Edges', null);
-        edges.add(link);
-        edges.add(edgeRow(settings, 'left', 'Left Edge'));
-        const right = edgeRow(settings, 'right', 'Right Edge');
-        edges.add(right);
+        const edges = new Adw.PreferencesGroup({title: _('Screen Edges')});
+        edges.add(switchRow(settings, 'link-edges', _('Use the Same Zone on Both Edges'), null));
+        edges.add(edgeRow(settings, 'left', _('Left Edge')));
+        edges.add(edgeRow(settings, 'right', _('Right Edge')));
         page.add(edges);
 
         // Linking takes the left edge's zone, so the two can't start out different.
@@ -375,83 +121,108 @@ export default class EdgeTossPreferences extends ExtensionPreferences {
                 writeZone(settings, 'left', readZone(settings, 'left'));
         });
 
-        const reach = new Adw.PreferencesGroup({title: 'Activation'});
-        reach.add(spinRow(settings, 'edge-depth', 'Distance from Edge',
-            'How close to the screen edge the pointer must be, in pixels. With a small value, windows tile near the edge and move when pushed right up to it.',
+        const hold = new Adw.PreferencesGroup({
+            title: _('Hold-Only Edges'),
+            description: _('Windows pass through these edges all the time, so they need a longer hold. Dropping without choosing a workspace does what it normally would.'),
+        });
+        hold.add(switchRow(settings, 'top-edge', _('Top Edge'),
+            _('Shows every workspace, on both sides of the current one')));
+        hold.add(switchRow(settings, 'shared-edges', _('Edges Between Monitors'),
+            _('Opens the workspace picker without crossing to the other monitor')));
+        page.add(hold);
+
+        const reach = new Adw.PreferencesGroup({title: _('Activation')});
+        reach.add(spinRow(settings, 'edge-depth', _('Distance from Edge'),
+            _('How close to the screen edge the pointer must be, in pixels. With a small value, windows tile near the edge and move when pushed right up to it.'),
             1, 150, 1));
-        reach.add(comboRow(settings, 'monitors', 'Monitors',
-            'Edges between two monitors are never used, so windows can cross freely', [
-                {value: 'all', label: 'All Monitors'},
-                {value: 'primary', label: 'Primary Only'},
+        reach.add(comboRow(settings, 'monitors', _('Monitors'),
+            _('Which monitors these edges work on'), [
+                {value: 'all', label: _('All Monitors')},
+                {value: 'primary', label: _('Primary Only')},
             ]));
         page.add(reach);
         return page;
     }
 
     _behaviourPage(settings) {
-        const page = new Adw.PreferencesPage({title: 'Behaviour', icon_name: 'preferences-system-symbolic'});
+        const page = new Adw.PreferencesPage({title: _('Behaviour'), icon_name: 'preferences-system-symbolic'});
 
-        const drop = new Adw.PreferencesGroup({title: 'After Moving a Window'});
-        drop.add(comboRow(settings, 'drop-action', 'When You Drop a Window',
-            'What happens to your view when a window moves', [
-                {value: 'stay', label: 'Stay on This Workspace'},
-                {value: 'follow', label: 'Go With the Window'},
+        const drop = new Adw.PreferencesGroup({title: _('After Moving a Window')});
+        drop.add(comboRow(settings, 'drop-action', _('When You Drop a Window'),
+            _('What happens to your view when a window moves'), [
+                {value: 'stay', label: _('Stay on This Workspace')},
+                {value: 'follow', label: _('Go With the Window')},
             ]));
         page.add(drop);
 
         const swap = new Adw.PreferencesGroup({
-            title: 'Doing the Opposite',
-            description: 'Ways to choose the other option for a single move',
+            title: _('Doing the Opposite'),
+            description: _('Ways to choose the other option for a single move'),
         });
-        swap.add(switchRow(settings, 'hold-to-follow', 'Hold Over a Workspace',
-            'Keep the pointer on a workspace in the picker until it fills up'));
-        swap.add(comboRow(settings, 'follow-modifier', 'Hold a Key While Dropping',
-            'Ctrl is recommended, as releasing Alt opens the menu bar in some apps', [
-                {value: 'ctrl', label: 'Ctrl'},
-                {value: 'alt', label: 'Alt'},
-                {value: 'none', label: 'None'},
+        swap.add(switchRow(settings, 'hold-to-follow', _('Hold Over a Workspace'),
+            _('Keep the pointer on a workspace in the picker until it fills up')));
+        swap.add(comboRow(settings, 'follow-modifier', _('Hold a Key While Dropping'),
+            _('Ctrl is recommended, as releasing Alt opens the menu bar in some apps'), [
+                {value: 'ctrl', label: _('Ctrl')},
+                {value: 'alt', label: _('Alt')},
+                {value: 'none', label: _('None')},
             ]));
-        swap.add(switchRow(settings, 'right-click-to-go', 'Right-Click While Dragging',
-            'Moves the window right away and always takes you with it when you let go'));
+        swap.add(switchRow(settings, 'right-click-to-go', _('Right-Click While Dragging'),
+            _('Moves the window right away and always takes you with it when you let go')));
         page.add(swap);
 
-        const targets = new Adw.PreferencesGroup({title: 'Workspaces'});
-        targets.add(switchRow(settings, 'offer-new-workspace', 'Offer a New Workspace',
-            'Lets you move a window to a new, empty workspace when using dynamic workspaces'));
+        const keys = new Adw.PreferencesGroup({title: _('While Dragging')});
+        keys.add(switchRow(settings, 'number-keys', _('Number Keys Choose a Workspace'),
+            _('Press 1 to 9 while dragging, then drop anywhere. Press the same number again to cancel.')));
+        keys.add(comboRow(settings, 'app-modifier', _('Move All of an App’s Windows'),
+            _('Hold this key while dropping to bring the app’s other windows on this workspace too. Has no effect if it’s the same key as above.'), [
+                {value: 'alt', label: _('Alt')},
+                {value: 'ctrl', label: _('Ctrl')},
+                {value: 'none', label: _('None')},
+            ]));
+        page.add(keys);
+
+        const targets = new Adw.PreferencesGroup({title: _('Workspaces')});
+        targets.add(switchRow(settings, 'offer-new-workspace', _('Offer a New Workspace'),
+            _('Lets you move a window to a new, empty workspace when using dynamic workspaces')));
         page.add(targets);
         return page;
     }
 
     _timingPage(settings, window) {
-        const page = new Adw.PreferencesPage({title: 'Timing & Look', icon_name: 'preferences-system-time-symbolic'});
+        const page = new Adw.PreferencesPage({title: _('Look & Feel'), icon_name: 'preferences-system-time-symbolic'});
 
-        const timing = new Adw.PreferencesGroup({title: 'Timing'});
-        timing.add(spinRow(settings, 'hold-delay-ms', 'Workspace Picker Delay',
-            'Time to hold at the edge before the picker opens, in milliseconds. Dropping sooner moves the window to the next workspace.', 100, 1500, 50));
-        const follow = spinRow(settings, 'follow-delay-ms', 'Hold Over Workspace Time',
-            'Time for a workspace in the picker to fill up, in milliseconds', 200, 3000, 50);
+        const timing = new Adw.PreferencesGroup({title: _('Timing')});
+        timing.add(spinRow(settings, 'hold-delay-ms', _('Workspace Picker Delay'),
+            _('Time to hold at the edge before the picker opens, in milliseconds. Dropping sooner moves the window to the next workspace.'), 100, 1500, 50));
+        const follow = spinRow(settings, 'follow-delay-ms', _('Hold Over Workspace Time'),
+            _('Time for a workspace in the picker to fill up, in milliseconds'), 200, 3000, 50);
         settings.bind('hold-to-follow', follow, 'sensitive', Gio.SettingsBindFlags.GET);
         timing.add(follow);
         timing.add(timingPreviewRow(settings));
         page.add(timing);
 
-        const look = new Adw.PreferencesGroup({title: 'Appearance'});
-        look.add(spinRow(settings, 'card-width', 'Workspace Preview Size',
-            'Maximum width in pixels. Previews shrink to fit when there are many workspaces.', 120, 360, 8));
-        look.add(switchRow(settings, 'show-hint', 'Highlight Zones While Dragging',
-            'Shows a thin bar along the edge as a window gets close'));
-        look.add(switchRow(settings, 'show-confirmation', 'Show Destination',
-            'Briefly shows the workspace number after a window moves'));
-        look.add(switchRow(settings, 'animate-throw', 'Animate Moved Windows',
-            'The window slides off the edge of the screen'));
+        const look = new Adw.PreferencesGroup({title: _('Appearance')});
+        look.add(spinRow(settings, 'card-width', _('Workspace Preview Size'),
+            _('Maximum width in pixels. Previews shrink to fit when there are many workspaces.'), 120, 360, 8));
+        look.add(switchRow(settings, 'show-workspace-names', _('Show Workspace Names'),
+            _('Adds any names you’ve given your workspaces to their previews')));
+        look.add(switchRow(settings, 'show-app-icons', _('Show App Icons'),
+            _('Shows which apps are on each workspace')));
+        look.add(switchRow(settings, 'show-hint', _('Highlight Zones While Dragging'),
+            _('Shows a thin bar along the edge as a window gets close')));
+        look.add(switchRow(settings, 'show-confirmation', _('Show Undo and Go Buttons'),
+            _('Briefly shows where a window went, with buttons to undo the move or go there')));
+        look.add(switchRow(settings, 'animate-throw', _('Animate Moved Windows'),
+            _('The window slides off the edge of the screen')));
         page.add(look);
 
         const reset = new Adw.PreferencesGroup();
-        const resetRow = new Adw.ActionRow({title: 'Reset All Settings', activatable: true});
+        const resetRow = new Adw.ActionRow({title: _('Reset All Settings'), activatable: true});
         resetRow.connect('activated', () => {
             for (const key of settings.settings_schema.list_keys())
                 settings.reset(key);
-            window.add_toast(new Adw.Toast({title: 'Settings reset to defaults'}));
+            window.add_toast(new Adw.Toast({title: _('Settings reset to defaults')}));
         });
         reset.add(resetRow);
         page.add(reset);

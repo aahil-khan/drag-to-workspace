@@ -17,6 +17,7 @@ const KEY_SHIFT = 0xffe1;
 const KEY_CONTROL = 0xffe3;
 const KEY_ALT = 0xffe9;
 const KEY_ESCAPE = 0xff1b;
+const KEY_3 = 0x33;
 const ARM_SETTLE = 60;
 const OUT = GLib.getenv('EDGE_TOSS_OUT');
 const SCENARIO = GLib.getenv('EDGE_TOSS_SCENARIO') ?? 'single';
@@ -71,6 +72,8 @@ export default class DriverExtension extends Extension {
         const seat = (Clutter.get_default_backend?.() ?? global.stage.get_context().get_backend()).get_default_seat();
         this._pointer = seat.create_virtual_device(Clutter.InputDeviceType.POINTER_DEVICE);
         this._keyboard = seat.create_virtual_device(Clutter.InputDeviceType.KEYBOARD_DEVICE);
+        this._touch = seat.create_virtual_device(Clutter.InputDeviceType.TOUCHSCREEN_DEVICE);
+        this._touchAt = null;
         this._results = [];
         this._grabs = [];
         global.display.connect('grab-op-begin', (_d, _w, op) => this._grabs.push(op));
@@ -109,6 +112,55 @@ export default class DriverExtension extends Extension {
         await sleep(100);
     }
 
+    _touchDown(x, y) {
+        this._touch.notify_touch_down(now(), 0, x, y);
+        this._touchAt = [x, y];
+    }
+
+    async _touchMoveTo(x, y, {steps = 12, stepMs = 8} = {}) {
+        const [sx, sy] = this._touchAt;
+        for (let i = 1; i <= steps; i++) {
+            const t = i / steps;
+            this._touch.notify_touch_motion(now(), 0, sx + (x - sx) * t, sy + (y - sy) * t);
+            await sleep(stepMs);
+        }
+        this._touchAt = [x, y];
+    }
+
+    _touchUp() {
+        if (!this._touchAt)
+            return;
+        this._touch.notify_touch_up(now(), 0);
+        this._touchAt = null;
+    }
+
+    /** Puts a finger on the header bar and pulls until Mutter has started the move. */
+    async _grabByTouch(win) {
+        const r = win.get_frame_rect();
+        const x = r.x + r.width / 2;
+        const y = r.y + 22;
+        this._grabs = [];
+        this._touchDown(x, y);
+        await sleep(100);
+        for (let i = 1; i <= 12 && this._grabs.length === 0; i++) {
+            await this._touchMoveTo(x, y + i * 4, {steps: 2});
+            await sleep(30);
+        }
+        check(this._grabs.length > 0, 'the touch drag never started a grab');
+        await sleep(40);
+    }
+
+    async _clickActor(actor) {
+        const [x, y] = actor.get_transformed_position();
+        const [width, height] = actor.get_transformed_size();
+        await this._moveTo(x + width / 2, y + height / 2);
+        await sleep(120);
+        this._button(true);
+        await sleep(40);
+        this._button(false);
+        await sleep(150);
+    }
+
     _key(keyval, pressed) {
         this._keyboard.notify_keyval(now(), keyval,
             pressed ? Clutter.KeyState.PRESSED : Clutter.KeyState.RELEASED);
@@ -139,8 +191,26 @@ export default class DriverExtension extends Extension {
 
     // ---- windows ----
 
-    _spawn(title) {
-        GLib.spawn_async(null, ['gjs', '-m', CLIENT, title], null, GLib.SpawnFlags.SEARCH_PATH, null);
+    _spawn(...titles) {
+        GLib.spawn_async(null, ['gjs', '-m', CLIENT, ...titles], null, GLib.SpawnFlags.SEARCH_PATH, null);
+    }
+
+    /** Runs fn with two windows, E and F, of one installed app, then closes them. */
+    async _withAppWindows(fn) {
+        this._spawn('E', 'F');
+        const e = await this._waitWindow('E');
+        const f = await this._waitWindow('F');
+        await sleep(500);
+        e.move_resize_frame(false, 300, 200, 640, 420);
+        f.move_resize_frame(false, 700, 300, 640, 420);
+        await sleep(300);
+        try {
+            await fn(e, f);
+        } finally {
+            e.delete(global.get_current_time());
+            f.delete(global.get_current_time());
+            await sleep(500);
+        }
     }
 
     _find(title) {
@@ -169,6 +239,7 @@ export default class DriverExtension extends Extension {
     async _reset() {
         this._key(KEY_ESCAPE, false);
         this._button(false);
+        this._touchUp();
         manager().get_workspace_by_index(0).activate(global.get_current_time());
         // Moving a window onto a workspace mid-animation trips a bug in the shell's
         // workspaceAnimation.js (_syncStacking), so let the switch finish first.
@@ -672,6 +743,424 @@ export default class DriverExtension extends Extension {
             check(activeIndex() === 0, `active is ${activeIndex()}`);
         });
 
+        await this._test('touch: a quick drop moves the window', async () => {
+            const a = this._find('A');
+            const before = rectOf(a);
+            await this._grabByTouch(a);
+            await this._touchMoveTo(RIGHT, 300);
+            await sleep(ARM_SETTLE);
+            check(session().phase === 'armed', `phase was ${session().phase}`);
+            this._touchUp();
+            await sleep(400);
+            check(a.get_workspace().index() === 1, `A on ${a.get_workspace().index()}`);
+            check(activeIndex() === 0, `active is ${activeIndex()}`);
+            check(sameRect(rectOf(a), before), `rect ${JSON.stringify(rectOf(a))} vs ${JSON.stringify(before)}`);
+            check(maxFlags(a) === 0, 'A was left tiled');
+        });
+
+        await this._test('touch: holding opens the picker, and a card can be chosen', async () => {
+            await this._spreadWorkspaces(['A', 'B', 'C']);
+            manager().get_workspace_by_index(0).activate(global.get_current_time());
+            await sleep(500);
+            const d = this._find('D');
+            d.activate(global.get_current_time());
+            await sleep(150);
+            await this._grabByTouch(d);
+            await this._touchMoveTo(RIGHT, 300);
+            await sleep(450);
+            check(session().phase === 'picker', `phase was ${session().phase}`);
+            const rect = session().layout.rects[1];
+            await this._touchMoveTo(RIGHT, rect.y + rect.height / 2);
+            await sleep(100);
+            check(session().selected === 1, `selected ${session().selected}`);
+            this._touchUp();
+            await sleep(400);
+            check(d.get_workspace().index() === 2, `D on ${d.get_workspace().index()}`);
+            check(activeIndex() === 0, `active is ${activeIndex()}`);
+        });
+
+        await this._test('touch: holding on a card goes with the window, repeatedly without a crash', async () => {
+            const a = this._find('A');
+            for (let i = 0; i < 5; i++) {
+                await this._reset();
+                await this._grabByTouch(a);
+                await this._touchMoveTo(RIGHT, 300);
+                await sleep(1750);
+                check(session().willFollow(false), `round ${i}: not following yet`);
+                this._touchUp();
+                await sleep(600);
+                check(activeIndex() === 1, `round ${i}: active is ${activeIndex()}`);
+                check(!global.stage.get_grab_actor(), `round ${i}: a grab was left behind`);
+            }
+        });
+
+        await this._test('touch: the mouse sitting at the edge has no say', async () => {
+            await this._moveTo(RIGHT, 300);
+            await sleep(100);
+            const a = this._find('A');
+            await this._grabByTouch(a);
+            await this._touchMoveTo(800, 500);
+            await sleep(450);
+            check(session().phase === 'idle', `phase was ${session().phase}`);
+            this._touchUp();
+            await sleep(300);
+            check(a.get_workspace().index() === 0, `A on ${a.get_workspace().index()}`);
+            await this._moveTo(800, 700);
+        });
+
+        await this._test('touch: a second finger at the edge is ignored', async () => {
+            const a = this._find('A');
+            await this._grabByTouch(a);
+            await this._touchMoveTo(800, 500);
+            await sleep(60);
+            this._touch.notify_touch_down(now(), 1, RIGHT, 300);
+            await sleep(40);
+            this._touch.notify_touch_motion(now(), 1, RIGHT, 310);
+            await sleep(300);
+            check(session()?.phase === 'idle', `phase was ${session()?.phase}`);
+            this._touch.notify_touch_up(now(), 1);
+            await sleep(60);
+            this._touchUp();
+            await sleep(300);
+            check(a.get_workspace().index() === 0, `A on ${a.get_workspace().index()}`);
+        });
+
+        await this._test('Undo puts the window back where it was', async () => {
+            const a = this._find('A');
+            const before = rectOf(a);
+            await this._grabTitlebar(a);
+            await this._moveTo(RIGHT, 300);
+            await sleep(ARM_SETTLE);
+            await this._drop();
+            await sleep(100);
+            const popup = toss.stateObj._overlay._popup;
+            check(popup, 'no popup after the move');
+            check(a.get_workspace().index() === 1, `A on ${a.get_workspace().index()}`);
+            await this._shot('30-undo-go-popup');
+
+            await this._clickActor(popup.get_children()[1]);
+            await sleep(300);
+            check(a.get_workspace().index() === 0, `A on ${a.get_workspace().index()} after Undo`);
+            check(activeIndex() === 0, `active is ${activeIndex()}`);
+            check(sameRect(rectOf(a), before), `rect ${JSON.stringify(rectOf(a))} vs ${JSON.stringify(before)}`);
+            check(global.display.focus_window === a, `focus is ${global.display.focus_window?.get_title()}`);
+            check(!toss.stateObj._overlay._popup, 'popup still up after Undo');
+        });
+
+        await this._test('Go takes you to the window', async () => {
+            const a = this._find('A');
+            await this._grabTitlebar(a);
+            await this._moveTo(RIGHT, 300);
+            await sleep(ARM_SETTLE);
+            await this._drop();
+            await sleep(100);
+            await this._clickActor(toss.stateObj._overlay._popup.get_children()[2]);
+            await sleep(600);
+            check(activeIndex() === 1, `active is ${activeIndex()}`);
+            check(global.display.focus_window === a, `focus is ${global.display.focus_window?.get_title()}`);
+            check(!global.stage.get_grab_actor(), 'a grab was left behind');
+        });
+
+        await this._test('the popup goes away by itself, but not while the pointer is on it', async () => {
+            const overlay = toss.stateObj._overlay;
+            const a = this._find('A');
+            await this._grabTitlebar(a);
+            await this._moveTo(RIGHT, 300);
+            await sleep(ARM_SETTLE);
+            await this._drop();
+            await sleep(100);
+            const [x, y] = overlay._popup.get_transformed_position();
+            await this._moveTo(x + 10, y + 10);
+            await sleep(4500);
+            check(overlay._popup, 'popup closed under the pointer');
+            await this._moveTo(800, 700);
+            await sleep(4500);
+            check(!overlay._popup, 'popup never closed');
+        });
+
+        await this._test('the popup is above the pointer, not under it', async () => {
+            const overlay = toss.stateObj._overlay;
+            const a = this._find('A');
+            await this._grabTitlebar(a);
+            await this._moveTo(RIGHT, 500);
+            await sleep(ARM_SETTLE);
+            await this._drop();
+            await sleep(100);
+            const [, y] = overlay._popup.get_transformed_position();
+            const [, height] = overlay._popup.get_transformed_size();
+            check(y + height < 500, `popup ends at ${y + height}`);
+        });
+
+        await this._test('top edge: a quick drop still maximizes', async () => {
+            const a = this._find('A');
+            await this._grabTitlebar(a);
+            await this._moveTo(800, 10);
+            await sleep(250);
+            check(session().phase === 'armed' && session().kind === 'top', `phase was ${session().phase}`);
+            check(!session().decide(), 'a quick drop would move the window');
+            await this._drop();
+            await sleep(400);
+            check(isMax(a), 'A did not maximize');
+            check(a.get_workspace().index() === 0, `A on ${a.get_workspace().index()}`);
+        });
+
+        await this._test('top edge: dropping on the open picker without choosing still maximizes', async () => {
+            const a = this._find('A');
+            await this._grabTitlebar(a);
+            await this._moveTo(800, 10);
+            await sleep(800);
+            check(session().phase === 'picker', `phase was ${session().phase}`);
+            check(session().selected === -1, `selected ${session().selected}`);
+            await this._drop();
+            await sleep(400);
+            check(isMax(a), 'A did not maximize');
+            check(a.get_workspace().index() === 0, `A on ${a.get_workspace().index()}`);
+        });
+
+        await this._test('top edge: shows workspaces on both sides, and a card can be chosen', async () => {
+            await this._spreadWorkspaces(['A', 'B', 'C']);
+            manager().get_workspace_by_index(1).activate(global.get_current_time());
+            await sleep(600);
+            const b = this._find('B');
+            this._find('D').change_workspace_by_index(1, true);
+            b.activate(global.get_current_time());
+            await sleep(200);
+            const before = rectOf(b);
+            await this._grabTitlebar(b);
+            await this._moveTo(800, 10);
+            await sleep(800);
+            check(session().phase === 'picker', `phase was ${session().phase}`);
+            check(session().targets.map(t => t.index).join() === '0,2,3', `targets ${session().targets.map(t => t.index)}`);
+            const first = session().layout.rects[0];
+            await this._moveTo(first.x + first.width / 2, 10);
+            await sleep(100);
+            check(session().selected === 0, `selected ${session().selected}`);
+            const stripBadge = toss.stateObj._overlay._cards[0]._badge;
+            check(stripBadge.width >= 10, `badge is ${stripBadge.width} wide`);
+            await this._shot('31-top-edge-strip');
+            await this._drop();
+            await sleep(400);
+            check(b.get_workspace().index() === 0, `B on ${b.get_workspace().index()}`);
+            check(activeIndex() === 1, `active is ${activeIndex()}`);
+            check(!isMax(b), 'B was left maximized');
+            check(sameRect(rectOf(b), before), `rect ${JSON.stringify(rectOf(b))} vs ${JSON.stringify(before)}`);
+        });
+
+        await this._test('top edge can be turned off', async () => {
+            await this._withSettings(toss, {'top-edge': false}, async () => {
+                const a = this._find('A');
+                await this._grabTitlebar(a);
+                await this._moveTo(800, 10);
+                await sleep(800);
+                check(session().phase === 'idle', `phase was ${session().phase}`);
+                await this._drop();
+                await sleep(300);
+                check(isMax(a), 'A did not maximize');
+            });
+        });
+
+        await this._test('number key: choose a workspace mid-screen, then drop', async () => {
+            await this._spreadWorkspaces(['A', 'B', 'C']);
+            manager().get_workspace_by_index(0).activate(global.get_current_time());
+            await sleep(500);
+            const d = this._find('D');
+            d.activate(global.get_current_time());
+            await sleep(150);
+            const before = rectOf(d);
+            await this._grabTitlebar(d);
+            await this._moveTo(800, 500);
+            this._key(KEY_3, true);
+            this._key(KEY_3, false);
+            await sleep(120);
+            check(session().keyTarget?.index === 2, `key target ${session().keyTarget?.index}`);
+            await this._shot('32-number-key');
+            await this._drop();
+            await sleep(300);
+            check(d.get_workspace().index() === 2, `D on ${d.get_workspace().index()}`);
+            check(activeIndex() === 0, `active is ${activeIndex()}`);
+            check(sameRect(rectOf(d), before), `rect ${JSON.stringify(rectOf(d))} vs ${JSON.stringify(before)}`);
+        });
+
+        await this._test('number key: pressing it again cancels, and a missing one does nothing', async () => {
+            await this._spreadWorkspaces(['A', 'B', 'C']);
+            manager().get_workspace_by_index(0).activate(global.get_current_time());
+            await sleep(500);
+            const d = this._find('D');
+            d.activate(global.get_current_time());
+            await sleep(150);
+            await this._grabTitlebar(d);
+            await this._moveTo(800, 500);
+            this._key(KEY_3, true);
+            this._key(KEY_3, false);
+            await sleep(60);
+            check(session().keyTarget?.index === 2, 'not chosen');
+            this._key(KEY_3, true);
+            this._key(KEY_3, false);
+            await sleep(60);
+            check(!session().keyTarget, 'not cancelled');
+            this._key(0x39, true);
+            this._key(0x39, false);
+            await sleep(60);
+            check(!session().keyTarget, 'chose a workspace that does not exist');
+            await this._drop();
+            check(d.get_workspace().index() === 0, `D on ${d.get_workspace().index()}`);
+        });
+
+        await this._test('number key can be turned off', async () => {
+            await this._withSettings(toss, {'number-keys': false}, async () => {
+                const a = this._find('A');
+                await this._grabTitlebar(a);
+                await this._moveTo(800, 500);
+                this._key(0x32, true);
+                this._key(0x32, false);
+                await sleep(60);
+                check(!session().keyTarget, 'chose a workspace while off');
+                await this._drop();
+                check(a.get_workspace().index() === 0, `A on ${a.get_workspace().index()}`);
+            });
+        });
+
+        await this._test('all of an app\'s windows: moved together, and Undo brings them all back', async () => {
+            await this._withAppWindows(async (e, f) => {
+                e.activate(global.get_current_time());
+                await sleep(150);
+                await this._grabTitlebar(e);
+                await this._moveTo(RIGHT, 300);
+                await sleep(ARM_SETTLE);
+                this._key(KEY_ALT, true);
+                await sleep(60);
+                check(toss.stateObj._overlay._tabLabel.text.includes('All windows'), toss.stateObj._overlay._tabLabel.text);
+                await this._shot('33-all-windows');
+                await this._drop();
+                this._key(KEY_ALT, false);
+                await sleep(300);
+                check(e.get_workspace().index() === 1, `E on ${e.get_workspace().index()}`);
+                check(f.get_workspace().index() === 1, `F on ${f.get_workspace().index()}`);
+                check(this._find('A').get_workspace().index() === 0, 'A moved too');
+                check(activeIndex() === 0, `active is ${activeIndex()}`);
+
+                await this._clickActor(toss.stateObj._overlay._popup.get_children()[1]);
+                await sleep(300);
+                check(e.get_workspace().index() === 0, `E on ${e.get_workspace().index()} after Undo`);
+                check(f.get_workspace().index() === 0, `F on ${f.get_workspace().index()} after Undo`);
+            });
+        });
+
+        await this._test('without the key, only the dragged window moves', async () => {
+            await this._withAppWindows(async (e, f) => {
+                e.activate(global.get_current_time());
+                await sleep(150);
+                await this._grabTitlebar(e);
+                await this._moveTo(RIGHT, 300);
+                await sleep(ARM_SETTLE);
+                await this._drop();
+                await sleep(300);
+                check(e.get_workspace().index() === 1, `E on ${e.get_workspace().index()}`);
+                check(f.get_workspace().index() === 0, `F on ${f.get_workspace().index()}`);
+            });
+        });
+
+        await this._test('an excluded app is left alone, and others still move', async () => {
+            await this._withSettings(toss, {
+                'excluded-apps': new GLib.Variant('as', ['dev.edgetoss.Client.E.desktop']),
+            }, async () => {
+                await this._withAppWindows(async e => {
+                    e.activate(global.get_current_time());
+                    await sleep(150);
+                    await this._grabTitlebar(e);
+                    check(!session(), 'a session started for an excluded app');
+                    await this._moveTo(RIGHT, 300);
+                    await sleep(450);
+                    check(Main.wm._tilePreview?.visible, 'no tile preview');
+                    await this._moveTo(800, 500);
+                    await this._drop();
+                    check(e.get_workspace().index() === 0, `E on ${e.get_workspace().index()}`);
+
+                    const a = this._find('A');
+                    a.activate(global.get_current_time());
+                    await sleep(150);
+                    await this._grabTitlebar(a);
+                    check(session(), 'no session for an app that is not excluded');
+                    await this._moveTo(800, 500);
+                    await this._drop();
+                });
+            });
+        });
+
+        await this._test('cards show workspace names and app icons', async () => {
+            const wm = new Gio.Settings({schema_id: 'org.gnome.desktop.wm.preferences'});
+            wm.set_strv('workspace-names', ['Home', 'Code']);
+            await sleep(200);
+            try {
+                await this._withAppWindows(async e => {
+                    e.change_workspace_by_index(1, true);
+                    this._find('F').change_workspace_by_index(1, true);
+                    await sleep(300);
+                    const a = this._find('A');
+                    a.activate(global.get_current_time());
+                    await sleep(150);
+                    await this._grabTitlebar(a);
+                    await this._moveTo(RIGHT, 300);
+                    await sleep(500);
+                    check(session().phase === 'picker', `phase was ${session().phase}`);
+                    const card = toss.stateObj._overlay._cards[0];
+                    check(card._badge.text.includes('Code'), `badge says ${card._badge.text}`);
+                    check(card._icons?.get_n_children() === 1, `icons ${card._icons?.get_n_children()}`);
+                    // Sizes on screen, as the text alone says nothing about being cut off.
+                    const [badgeNatural] = card._badge.clutter_text.get_preferred_width(-1).slice(1);
+                    check(card._badge.width >= badgeNatural - 1, `badge cut to ${card._badge.width} of ${badgeNatural}`);
+                    const [iconsX] = card._icons.get_transformed_position();
+                    const [cardX] = card.get_transformed_position();
+                    check(iconsX + card._icons.width <= cardX + card.width, 'icons overflow the card');
+                    await this._shot('34-names-and-icons');
+                    await this._moveTo(800, 500);
+                    await this._drop();
+                });
+            } finally {
+                wm.reset('workspace-names');
+            }
+        });
+
+        await this._test('names and icons can be turned off', async () => {
+            await this._withSettings(toss, {'show-app-icons': false, 'show-workspace-names': false}, async () => {
+                const wm = new Gio.Settings({schema_id: 'org.gnome.desktop.wm.preferences'});
+                wm.set_strv('workspace-names', ['Home', 'Code']);
+                await sleep(200);
+                try {
+                    const a = this._find('A');
+                    await this._grabTitlebar(a);
+                    await this._moveTo(RIGHT, 300);
+                    await sleep(500);
+                    const card = toss.stateObj._overlay._cards[0];
+                    check(!card._badge.text.includes('Code'), `badge says ${card._badge.text}`);
+                    check(!card._icons, 'icons showed');
+                    await this._moveTo(800, 500);
+                    await this._drop();
+                } finally {
+                    wm.reset('workspace-names');
+                }
+            });
+        });
+
+        await this._test('vertical workspaces: the arrows point up and down', async () => {
+            manager().override_workspace_layout(Meta.DisplayCorner.TOPLEFT, false, -1, 1);
+            await sleep(100);
+            try {
+                await this._withSettings(toss, {'hold-delay-ms': 1500}, async () => {
+                    const a = this._find('A');
+                    await this._grabTitlebar(a);
+                    await this._moveTo(RIGHT, 300);
+                    await sleep(ARM_SETTLE);
+                    const text = toss.stateObj._overlay._tabLabel.text;
+                    check(text.includes('↓'), `tab says ${text}`);
+                    await this._moveTo(800, 500);
+                    await this._drop();
+                });
+            } finally {
+                manager().override_workspace_layout(Meta.DisplayCorner.TOPLEFT, false, 1, -1);
+            }
+        });
+
         await this._test('hold-to-follow off: a long hold still just sends', async () => {
             await this._withSettings(toss, {'hold-to-follow': false, 'follow-delay-ms': 400}, async () => {
                 const a = this._find('A');
@@ -813,16 +1302,16 @@ export default class DriverExtension extends Extension {
             const looks = {'show-hint': false, 'show-confirmation': false, 'animate-throw': false, 'card-width': 300};
             await this._withSettings(toss, looks, async () => {
                 const overlay = toss.stateObj._overlay;
-                const calls = {flyOut: 0, confirm: 0};
+                const calls = {flyOut: 0, showMoved: 0};
                 const flyOut = overlay.flyOut;
-                const confirm = overlay.confirm;
+                const showMoved = overlay.showMoved;
                 overlay.flyOut = function (...args) {
                     calls.flyOut++;
                     return flyOut.apply(this, args);
                 };
-                overlay.confirm = function (...args) {
-                    calls.confirm++;
-                    return confirm.apply(this, args);
+                overlay.showMoved = function (...args) {
+                    calls.showMoved++;
+                    return showMoved.apply(this, args);
                 };
                 try {
                     const a = this._find('A');
@@ -837,10 +1326,10 @@ export default class DriverExtension extends Extension {
                     await this._drop();
                     await sleep(200);
                     check(a.get_workspace().index() === 1, `A on ${a.get_workspace().index()}`);
-                    check(calls.flyOut === 0 && calls.confirm === 0, `calls ${JSON.stringify(calls)}`);
+                    check(calls.flyOut === 0 && calls.showMoved === 0, `calls ${JSON.stringify(calls)}`);
                 } finally {
                     delete overlay.flyOut;
-                    delete overlay.confirm;
+                    delete overlay.showMoved;
                 }
             });
         });
@@ -1124,7 +1613,7 @@ export default class DriverExtension extends Extension {
                 win.move_resize_frame(false, g.x + 200, g.y + 150, 640, 420);
             };
 
-            await this._test(`${tag}: edge between monitors does not trigger`, async () => {
+            await this._test(`${tag}: a quick drop at the edge between monitors moves nothing`, async () => {
                 const a = this._find('A');
                 place(a, left);
                 await sleep(300);
@@ -1133,8 +1622,8 @@ export default class DriverExtension extends Extension {
                 await this._grabTitlebar(a);
                 await this._moveTo(right.x - 1, 300);
                 await sleep(450);
-                check(session().phase === 'idle', `phase was ${session().phase}`);
-                check(!toss.stateObj._overlay._picker, 'picker opened at the shared edge');
+                check(!session().decide(), 'a quick drop at the shared edge would move the window');
+                check(!toss.stateObj._overlay._picker, 'picker opened too soon at the shared edge');
                 await this._moveTo(right.x + 400, 400);
                 await sleep(80);
                 await this._drop();
@@ -1187,6 +1676,64 @@ export default class DriverExtension extends Extension {
                 await this._moveTo(primary.x + 300, 500, {steps: 24});
                 await sleep(100);
                 await this._drop();
+            });
+
+            await this._test(`${tag}: holding at the edge between monitors opens the picker there`, async () => {
+                const a = this._find('A');
+                place(a, left);
+                await sleep(300);
+                this._find('B').change_workspace_by_index(0, false);
+                a.activate(global.get_current_time());
+                await sleep(100);
+                const before = rectOf(a);
+                await this._grabTitlebar(a);
+                await this._moveTo(left.x + left.width - 1, 300);
+                await sleep(800);
+                check(session().phase === 'picker', `phase was ${session().phase}`);
+                check(session().kind === 'shared', `kind was ${session().kind}`);
+                check(session().selected === -1, `selected ${session().selected}`);
+                await this._shot(`12-shared-edge-${onlyPrimary ? 'primary' : 'all'}`);
+
+                const rect = session().layout.rects[0];
+                await this._moveTo(left.x + left.width - 1, rect.y + rect.height / 2 + 20);
+                await sleep(100);
+                check(session().selected === 0, `selected ${session().selected}`);
+                await this._drop();
+                await sleep(400);
+                check(a.get_workspace().index() === 1, `A on ${a.get_workspace().index()}`);
+                check(sameRect(rectOf(a), before), `rect ${JSON.stringify(rectOf(a))} vs ${JSON.stringify(before)}`);
+            });
+
+            await this._test(`${tag}: dropping on that picker without choosing moves nothing`, async () => {
+                const a = this._find('A');
+                place(a, left);
+                await sleep(300);
+                a.activate(global.get_current_time());
+                await sleep(100);
+                await this._grabTitlebar(a);
+                await this._moveTo(left.x + left.width - 1, 300);
+                await sleep(800);
+                check(session().phase === 'picker', `phase was ${session().phase}`);
+                await this._drop();
+                await sleep(300);
+                check(a.get_workspace().index() === 0, `A on ${a.get_workspace().index()}`);
+                check(activeIndex() === 0, `active is ${activeIndex()}`);
+            });
+
+            await this._test(`${tag}: the edge between monitors can be turned off`, async () => {
+                await this._withSettings(toss, {'shared-edges': false}, async () => {
+                    const a = this._find('A');
+                    place(a, left);
+                    await sleep(300);
+                    a.activate(global.get_current_time());
+                    await sleep(100);
+                    await this._grabTitlebar(a);
+                    await this._moveTo(left.x + left.width - 1, 300);
+                    await sleep(800);
+                    check(session().phase === 'idle', `phase was ${session().phase}`);
+                    await this._moveTo(left.x + 300, 400);
+                    await this._drop();
+                });
             });
 
             await this._test(`${tag}: the primary-only setting ignores other monitors' edges`, async () => {
@@ -1325,7 +1872,7 @@ export default class DriverExtension extends Extension {
                 const settings = toss.stateObj.getSettings();
                 const r = rectOf(win);
                 const at = (x, y) => [r.x + x, r.y + y];
-                const gripX = 120;
+                const gripX = 140;
                 const zone = side => [settings.get_int(`${side}-zone-start`), settings.get_int(`${side}-zone-end`)].join('-');
                 const dragFrom = async (x, y, dy) => {
                     await this._moveTo(...at(x, y));
@@ -1354,7 +1901,7 @@ export default class DriverExtension extends Extension {
                 settings.set_boolean('link-edges', false);
                 await sleep(200);
                 const before = zone('left');
-                const rightGripX = 518;
+                const rightGripX = 538;
                 const startY = 172 + 262 * slidStart / 100;
                 await dragFrom(rightGripX, startY, -60);
                 check(zone('left') === before, `left moved with right: ${zone('left')}`);
@@ -1374,7 +1921,7 @@ export default class DriverExtension extends Extension {
                 check(zone('right') === offBefore, 'dragged a turned off edge');
                 await this._shot('22-prefs-area-right-off');
 
-                await this._moveTo(...at(320, 22));
+                await this._moveTo(...at(273, 22));
                 await sleep(80);
                 this._button(true);
                 await sleep(40);
@@ -1382,7 +1929,7 @@ export default class DriverExtension extends Extension {
                 await sleep(500);
                 await this._shot('23-prefs-behaviour');
 
-                await this._moveTo(...at(470, 22));
+                await this._moveTo(...at(405, 22));
                 await sleep(80);
                 this._button(true);
                 await sleep(40);
@@ -1391,7 +1938,7 @@ export default class DriverExtension extends Extension {
                 await this._shot('24-prefs-timing');
 
                 // Play the timing preview, and catch it part way.
-                await this._moveTo(...at(538, 260));
+                await this._moveTo(...at(564, 260));
                 await sleep(80);
                 this._button(true);
                 await sleep(40);
@@ -1402,7 +1949,7 @@ export default class DriverExtension extends Extension {
                 // Reset puts everything back, including what was changed above.
                 settings.set_int('hold-delay-ms', 900);
                 await sleep(150);
-                await this._moveTo(...at(320, 629));
+                await this._moveTo(...at(340, 744));
                 await sleep(80);
                 this._button(true);
                 await sleep(40);
@@ -1411,6 +1958,40 @@ export default class DriverExtension extends Extension {
                 check(settings.get_int('hold-delay-ms') === 350, `hold is ${settings.get_int('hold-delay-ms')}`);
                 check(zone('left') === '0-67', `left zone is ${zone('left')}`);
                 check(settings.get_boolean('right-enabled'), 'right edge stayed off');
+
+                // The hold-only edges are further down the Zones page.
+                await this._moveTo(...at(60, 22));
+                await this._moveTo(...at(153, 22));
+                await sleep(80);
+                this._button(true);
+                await sleep(40);
+                this._button(false);
+                await sleep(400);
+                await this._moveTo(...at(340, 500));
+                for (let i = 0; i < 12; i++) {
+                    this._pointer.notify_discrete_scroll(now(), Clutter.ScrollDirection.DOWN, Clutter.ScrollSource.WHEEL);
+                    await sleep(40);
+                }
+                await sleep(600);
+                await this._shot('26-prefs-hold-only-edges');
+
+                // The excluded apps page, with one in the list, then its dialog.
+                settings.set_strv('excluded-apps', ['dev.edgetoss.Client.E.desktop']);
+                await this._moveTo(...at(537, 22));
+                await sleep(80);
+                this._button(true);
+                await sleep(40);
+                this._button(false);
+                await sleep(500);
+                await this._shot('27-prefs-apps');
+                await this._moveTo(...at(594, 103));
+                await sleep(80);
+                this._button(true);
+                await sleep(40);
+                this._button(false);
+                await sleep(700);
+                await this._shot('28-prefs-apps-dialog');
+                settings.reset('excluded-apps');
             });
 
             this._finish(null);

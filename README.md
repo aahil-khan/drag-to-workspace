@@ -8,14 +8,22 @@ Move windows to other workspaces by dragging them to the edge of the screen, wit
 | --- | --- |
 | Drop it at the left or right edge | It moves to the next workspace on that side. You stay where you are. |
 | Hold it at the edge | A picker opens with every workspace on that side. Move up or down and drop. |
+| Hold it at the top edge | A picker opens with every workspace, on both sides. Move sideways and drop. |
+| Hold it at an edge between two monitors | The picker opens there, without crossing to the other monitor. |
 | Hold over a workspace in the picker | The preview fills up. Drop after that to go with the window. |
+| Press 1 to 9 | Chooses that workspace, then drop anywhere. Press it again to cancel. |
 | Hold Ctrl as you drop | Goes with the window straight away. |
+| Hold Alt as you drop | Moves all of that app's windows on this workspace too. |
 | Right-click | Moves the window right away, and takes you with it when you let go. |
 | Drag back away from the edge, or press Escape | Nothing moves. |
 
+After a move, a small popup says where the window went, with **Undo** and **Go** buttons.
+
 The window keeps its position and size on the new workspace, and stays maximized if it was maximized.
 
-A window can't be moved while it's fullscreen or set to appear on all workspaces. Resizing a window into the edge does nothing.
+A window can't be moved while it's fullscreen or set to appear on all workspaces, or if its app is on your excluded list. Resizing a window into the edge does nothing.
+
+It works with touchscreens too, using the same gestures with your finger. The keys and right-click need a keyboard and mouse.
 
 ## Window tiling
 
@@ -23,9 +31,11 @@ Dropping a window on a side of the screen normally tiles it to half the screen. 
 
 You can resize or move the zones in the settings, or use only one edge. Another way to share an edge is to lower **Distance from Edge**: windows then tile near the edge and move when pushed right up to it.
 
+The top edge and the edges between monitors are used all the time for maximizing and crossing, so they only open a picker after a longer hold, and a drop only moves the window once you've moved the pointer onto a workspace. Drop without choosing, and GNOME does what it normally would.
+
 ## Multiple monitors
 
-Only the outer edges of your screens are used, so windows can still cross between monitors, and edges between monitors keep normal tiling. To move a window towards a side blocked by another monitor, drag it to that monitor's far edge. The window stays on its original monitor.
+Windows cross between monitors as usual. To use the workspace picker at the edge between two monitors, hold there. A window goes back to its original monitor when it moves.
 
 If workspaces are set to the primary display only, windows on other displays are already on every workspace, so they can't be moved.
 
@@ -37,14 +47,14 @@ Open them from the Extensions app, or run:
 gnome-extensions prefs edge-toss@aahil-khan.github.com
 ```
 
-- **Zones:** where on each edge windows move, how close the pointer has to be, and which monitors are used.
-- **Behaviour:** whether a drop keeps you on the current workspace, and the ways to do the opposite.
-- **Timing & Look:** the two hold delays, with a preview, plus preview size, the zone highlight, the destination label, and animation.
+- **Zones:** where on each edge windows move, how close the pointer has to be, which monitors are used, and the hold-only edges.
+- **Behaviour:** whether a drop keeps you on the current workspace, the ways to do the opposite, number keys, and the key for moving all of an app's windows.
+- **Look & Feel:** the two hold delays, with a preview, plus preview size, workspace names, app icons, the zone highlight, the Undo and Go popup, and animation.
+- **Apps:** apps whose windows are never moved.
 
 ## Limitations
 
-- Workspaces are assumed to run left to right, the default since GNOME 40.
-- Touchscreen drags haven't been tested.
+With vertical workspace layouts, the left edge moves windows up and the right edge moves them down. Grids of workspaces are treated as one long row.
 
 ## Development
 
@@ -54,6 +64,7 @@ make e2e      # real drags in a sandboxed headless GNOME Shell, on your own vers
 make install  # symlinks this checkout into your extensions folder
 make pack     # builds the zips for extensions.gnome.org into dist/
 make matrix   # tests each zip on the distros it targets, in containers with podman
+make pot      # regenerates the translation template, po/edge-toss.pot
 ```
 
 `make e2e` runs a throwaway `gnome-shell --headless` with its own home, dconf and session bus, so it doesn't touch your running desktop. A driver extension moves a virtual pointer over real GTK4 windows and checks the results through Mutter. Any JS error in the shell log fails the run. Screenshots and logs land in `test/e2e/out/`.
@@ -61,8 +72,13 @@ make matrix   # tests each zip on the distros it targets, in containers with pod
 ### Layout
 
 - `lib/logic.js` makes the decisions and has no GNOME imports.
-- `extension.js` connects it to the shell, and `lib/ui.js` draws.
-- `prefs.js` is the settings window.
+- `extension.js` connects it to the shell.
+- `lib/ui.js` draws during a drag, with `lib/workspaceCard.js` for each workspace and `lib/movedPopup.js` for the popup afterwards.
+- `prefs.js` is the settings window, and the files in `prefs/` are its parts.
+
+### Translations
+
+Translations go in `po/`, starting from `po/edge-toss.pot`, and `make pack` compiles any it finds into the zips.
 
 ### Versions
 

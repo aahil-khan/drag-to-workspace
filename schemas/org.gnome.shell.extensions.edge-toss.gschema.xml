@@ -66,6 +66,32 @@
       <summary>Which monitors' edges move windows</summary>
     </key>
 
+    <key name="shared-edges" type="b">
+      <default>true</default>
+      <summary>Holding at an edge between two monitors opens the workspace picker</summary>
+    </key>
+    <key name="top-edge" type="b">
+      <default>true</default>
+      <summary>Holding at the top edge opens a picker with every workspace</summary>
+    </key>
+    <key name="excluded-apps" type="as">
+      <default>[]</default>
+      <summary>Application IDs whose windows are never moved</summary>
+    </key>
+
+    <key name="number-keys" type="b">
+      <default>true</default>
+      <summary>Pressing a number while dragging chooses that workspace</summary>
+    </key>
+    <key name="app-modifier" type="s">
+      <choices>
+        <choice value="alt"/>
+        <choice value="ctrl"/>
+        <choice value="none"/>
+      </choices>
+      <default>"alt"</default>
+      <summary>Key that moves all of an app's windows on the workspace while held</summary>
+    </key>
     <key name="hold-to-follow" type="b">
       <default>true</default>
       <summary>Holding over a workspace in the picker does the opposite of the usual drop</summary>
@@ -94,7 +120,15 @@
     </key>
     <key name="show-confirmation" type="b">
       <default>true</default>
-      <summary>Briefly show the destination workspace after a move</summary>
+      <summary>Briefly show the destination workspace after a move, with Undo and Go buttons</summary>
+    </key>
+    <key name="show-workspace-names" type="b">
+      <default>true</default>
+      <summary>Show workspace names on previews in the picker</summary>
+    </key>
+    <key name="show-app-icons" type="b">
+      <default>true</default>
+      <summary>Show the icons of a workspace's apps on its preview in the picker</summary>
     </key>
     <key name="animate-throw" type="b">
       <default>true</default>

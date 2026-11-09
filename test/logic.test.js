@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
     Phase, findEdge, isTossHeight, tossSpan, moveZone, zonePartAt, captionFor,
-    computeTargets, layoutPicker, cardAt, DragSession,
+    computeTargets, layoutPicker, layoutStrip, cardAt, DragSession,
 } from '../lib/logic.js';
 
 const mon = (x, y, width, height, panel = 32) => ({
@@ -94,15 +94,15 @@ test('zonePartAt: finds the nearest handle, then the body, then nothing', () => 
 
 test('captionFor says what a drop does, and what holding on will do', () => {
     const stay = {dropAction: 'stay', cardWidth: 208};
-    assert.equal(captionFor({...stay, followProgress: 0, flipped: false}), 'Send here');
-    assert.equal(captionFor({...stay, followProgress: 0.5, flipped: false}), 'Hold to go with it');
-    assert.equal(captionFor({...stay, followProgress: 1, flipped: true}), 'Go with it');
-    assert.equal(captionFor({...stay, cardWidth: 104, followProgress: 0.5, flipped: false}), 'Hold\u2026');
+    assert.equal(captionFor({...stay, followProgress: 0, flipped: false}), 'send');
+    assert.equal(captionFor({...stay, followProgress: 0.5, flipped: false}), 'hold-go');
+    assert.equal(captionFor({...stay, followProgress: 1, flipped: true}), 'go');
+    assert.equal(captionFor({...stay, cardWidth: 104, followProgress: 0.5, flipped: false}), 'hold');
 
     const follow = {dropAction: 'follow', cardWidth: 208};
-    assert.equal(captionFor({...follow, followProgress: 0, flipped: false}), 'Go with it');
-    assert.equal(captionFor({...follow, followProgress: 0.5, flipped: false}), 'Hold to stay here');
-    assert.equal(captionFor({...follow, followProgress: 1, flipped: true}), 'Send here');
+    assert.equal(captionFor({...follow, followProgress: 0, flipped: false}), 'go');
+    assert.equal(captionFor({...follow, followProgress: 0.5, flipped: false}), 'hold-stay');
+    assert.equal(captionFor({...follow, followProgress: 1, flipped: true}), 'send');
 });
 
 test('computeTargets: right is nearest first and marks the empty last one as new', () => {
@@ -396,4 +396,173 @@ test('the hint grows on the approach and skips sides with no targets', () => {
     none.update(800, 300, 0, single);
     none.update(1450, 300, 10, single);
     assert.equal(none.hint, null);
+});
+
+test('findEdge: shared and top edges only count when asked for', () => {
+    const two = [mon(0, 0, 1600, 1000), mon(1600, 0, 1600, 1000)];
+    const on = {sharedEdges: true, topEdge: true};
+    assert.equal(findEdge(1599, 300, two, BAND), null);
+    assert.equal(findEdge(1599, 300, two, BAND, on).kind, 'shared');
+    assert.equal(findEdge(1599, 300, two, BAND, on).side, 'right');
+    assert.equal(findEdge(1600, 300, two, BAND, on).side, 'left');
+    assert.equal(findEdge(3199, 300, two, BAND, on).kind, 'outer');
+
+    assert.equal(findEdge(800, 10, two, BAND), null);
+    assert.equal(findEdge(800, 10, two, BAND, on).kind, 'top');
+    assert.equal(findEdge(800, 33, two, BAND, on).kind, 'top');
+    assert.equal(findEdge(800, 60, two, BAND, on), null);
+});
+
+test('findEdge: the top of a monitor below another is not an edge', () => {
+    const stacked = [mon(0, 0, 1600, 1000), mon(0, 1000, 1600, 1000)];
+    assert.equal(findEdge(800, 1010, stacked, BAND, {topEdge: true}), null);
+    assert.equal(findEdge(800, 10, stacked, BAND, {topEdge: true}).kind, 'top');
+});
+
+test('computeTargets: top offers every other workspace in order', () => {
+    const args = {activeIndex: 1, count: 4, side: 'top', dynamic: true, lastIsEmpty: true, windowAlone: false};
+    assert.deepEqual(computeTargets(args).map(t => t.index), [0, 2, 3]);
+    assert.equal(computeTargets(args).at(-1).isNew, true);
+    assert.deepEqual(computeTargets({...args, offerNew: false}).map(t => t.index), [0, 2]);
+});
+
+test('layoutStrip: fits many workspaces across the top, centred', () => {
+    const workArea = {x: 0, y: 32, width: 1600, height: 968};
+    const few = layoutStrip({count: 2, workArea, aspect: 1.6});
+    assert.equal(few.cardWidth, 208);
+    assert.equal(few.rects[0].x - workArea.x, workArea.x + workArea.width - few.rects[1].x - few.cardWidth);
+
+    const many = layoutStrip({count: 20, workArea, aspect: 1.6});
+    assert.ok(many.cardWidth < 208);
+    assert.ok(many.rects.at(-1).x + many.cardWidth <= 1600);
+    assert.ok(many.rects[0].x >= 0);
+});
+
+test('cardAt: runs along either axis', () => {
+    const rects = [{x: 0, y: 40, width: 100, height: 60}, {x: 110, y: 40, width: 100, height: 60}];
+    assert.equal(cardAt(20, rects, 'x'), 0);
+    assert.equal(cardAt(180, rects, 'x'), 1);
+});
+
+const dualMonitors = [mon(0, 0, 1600, 1000), mon(1600, 0, 1600, 1000)];
+const softSession = (opts = {}) => session({sharedEdges: true, topEdge: true, ...opts});
+
+test('a soft edge: passing through does nothing, and a quick drop stays GNOME\'s', () => {
+    const s = softSession();
+    s.update(800, 300, 0, dualMonitors);
+    s.update(1599, 300, 10, dualMonitors);
+    assert.equal(s.phase, Phase.ARMED);
+    assert.equal(s.isSoft, true);
+    assert.equal(s.showsTab, false);
+    assert.equal(s.ownsPointer, false);
+    assert.equal(s.decide(), null);
+
+    s.update(1599, 300, 300, dualMonitors);
+    assert.equal(s.showsTab, true);
+    assert.equal(s.decide(), null);
+    s.update(1700, 300, 310, dualMonitors);
+    assert.equal(s.phase, Phase.IDLE);
+});
+
+test('a soft edge: the picker takes a longer hold and starts with nothing selected', () => {
+    const s = softSession();
+    s.update(800, 300, 0, dualMonitors);
+    s.update(1599, 300, 10, dualMonitors);
+    s.update(1599, 300, 400, dualMonitors);
+    assert.equal(s.phase, Phase.ARMED);
+    s.update(1599, 300, 720, dualMonitors);
+    assert.equal(s.phase, Phase.PICKER);
+    assert.equal(s.selected, -1);
+    assert.equal(s.ownsPointer, false);
+    assert.equal(s.decide(), null);
+    s.update(1599, 300, 3000, dualMonitors);
+    assert.equal(s.decide(), null);
+    assert.equal(s.followProgress, 0);
+});
+
+test('a soft edge: moving over a card picks it, and then a drop moves the window', () => {
+    const s = softSession();
+    s.update(800, 300, 0, dualMonitors);
+    s.update(1599, 300, 10, dualMonitors);
+    s.update(1599, 300, 720, dualMonitors);
+    const second = s.layout.rects[1];
+    s.update(1599, second.y + 10, 800, dualMonitors);
+    assert.equal(s.selected, 1);
+    assert.equal(s.ownsPointer, true);
+    assert.deepEqual(s.decide().target, s.targets[1]);
+});
+
+test('the top edge: a strip of cards, chosen by moving sideways', () => {
+    const s = softSession();
+    s.update(800, 300, 0, single);
+    s.update(800, 10, 10, single);
+    assert.equal(s.kind, 'top');
+    assert.equal(s.decide(), null);
+    s.update(800, 10, 720, single);
+    assert.equal(s.phase, Phase.PICKER);
+    assert.equal(s.selected, -1);
+
+    const last = s.layout.rects.at(-1);
+    s.update(last.x + 20, 10, 800, single);
+    assert.equal(s.selected, s.targets.length - 1);
+    assert.equal(s.decide().target.index, s.targets.at(-1).index);
+
+    s.update(last.x + 20, s.layout.top + s.layout.cardHeight + 100, 900, single);
+    assert.equal(s.phase, Phase.IDLE);
+});
+
+test('the top edge respects the monitor setting', () => {
+    const s = softSession({allowMonitor: i => i === 1});
+    s.update(800, 300, 0, dualMonitors);
+    s.update(800, 10, 10, dualMonitors);
+    assert.equal(s.phase, Phase.IDLE);
+});
+
+test('a number key chooses a workspace from anywhere, and again to take it back', () => {
+    const all = [{index: 0, isNew: false}, {index: 2, isNew: false}, {index: 3, isNew: true}];
+    const s = session({getTargets: () => all});
+    s.update(800, 500, 0, single);
+    assert.equal(s.decide(), null);
+
+    s.chooseNumber(3);
+    assert.equal(s.ownsPointer, true);
+    assert.deepEqual(s.decide(), {target: all[1], follow: false});
+    assert.equal(s.decide(true).follow, true);
+
+    s.update(1599, 300, 100, single);
+    assert.equal(s.phase, Phase.IDLE);
+    assert.equal(s.decide().target.index, 2);
+
+    s.chooseNumber(3);
+    assert.equal(s.decide(), null);
+});
+
+test('a number key ignores workspaces that are not targets, like the current one', () => {
+    const s = session({getTargets: () => [{index: 0, isNew: false}, {index: 2, isNew: false}]});
+    s.update(800, 500, 0, single);
+    s.chooseNumber(2);
+    assert.equal(s.keyTarget, null);
+    s.chooseNumber(9);
+    assert.equal(s.keyTarget, null);
+});
+
+test('a number key closes an open picker', () => {
+    const s = armedAt(session());
+    s.update(1599, 300, 360, single);
+    assert.equal(s.phase, Phase.PICKER);
+    s.chooseNumber(2);
+    assert.equal(s.phase, Phase.IDLE);
+    assert.equal(s.decide().target.index, 1);
+});
+
+test('a chosen workspace that goes away is forgotten', () => {
+    let all = [{index: 1, isNew: false}];
+    const s = session({getTargets: () => all});
+    s.update(800, 500, 0, single);
+    s.chooseNumber(2);
+    assert.equal(s.keyTarget.index, 1);
+    all = [];
+    s.invalidate();
+    s.update(800, 500, 10, single);
+    assert.equal(s.keyTarget, null);
 });

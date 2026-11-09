@@ -25,6 +25,16 @@ run_scenario() {
     ln -s "$ROOT/test/e2e/driver" "$sandbox/data/gnome-shell/extensions/$DRIVER"
     rm -f "$OUT/results-$scenario.json"
 
+    # An installed app, so the shell tracks its windows as one app with a real ID.
+    mkdir -p "$sandbox/data/applications"
+    cat >"$sandbox/data/applications/dev.edgetoss.Client.E.desktop" <<'DESKTOP'
+[Desktop Entry]
+Type=Application
+Name=Edge Toss Test App
+Exec=true
+Icon=applications-system-symbolic
+DESKTOP
+
     env -i \
         PATH="$PATH" LANG="${LANG:-C.UTF-8}" \
         HOME="$sandbox/home" \
@@ -38,6 +48,7 @@ run_scenario() {
         WAYLAND_DISPLAY=edge-toss-test \
         EDGE_TOSS_OUT="$OUT" \
         EDGE_TOSS_SCENARIO="$scenario" \
+        LANGUAGE="${LANGUAGE:-}" \
         EDGE_TOSS_ONLY="${EDGE_TOSS_ONLY:-}" \
         EDGE_TOSS_PREFS_BASIC="${EDGE_TOSS_PREFS_BASIC:-}" \
         EDGE_TOSS_CLIENT="$ROOT/test/e2e/client.js" \

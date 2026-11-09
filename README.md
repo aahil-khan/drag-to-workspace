@@ -8,6 +8,7 @@ Throw a window onto another workspace by dragging it to the screen edge, without
 | Hold at the edge | A picker opens with every workspace on that side, nearest first. Move up or down and drop. You stay here. |
 | Hold on one workspace in the picker | The card fills up. When it's full it snaps to "Go with it", and dropping takes you there too. |
 | Hold Ctrl while dropping | Goes with the window straight away, at any stage. |
+| Right-click while still holding the window | Throws right away to the card under the pointer, or to the next workspace if the picker isn't open yet. The screen follows as soon as you let go, whatever the normal drop does. |
 | Drag back away from the edge, or press Escape | Nothing is thrown. |
 
 The window arrives where it was before the drag, at the same size, and maximized if it was maximized.
@@ -19,7 +20,7 @@ Ctrl is used because GNOME treats Shift as a snap mode during a drag: it clears 
 `gnome-extensions prefs edge-toss@aahil-khan.github.com`
 
 - **Area:** a drawing of the screen with the throwing area on each edge. Drag its grips to resize it or the area itself to slide it, or type exact percentages. Each edge can be turned off or set separately. Also sets how close to the edge the pointer has to be, and which monitors take part.
-- **Behaviour:** what a normal drop does, how to swap it (holding on a card, a key, or both), and whether to offer new workspaces.
+- **Behaviour:** what a normal drop does, how to change it (holding on a card, a key, a right-click), and whether to offer new workspaces.
 - **Timing & Look:** how long to hold before the picker opens and before a card fills, with a button that plays both at real speed. Card size, the edge hint, the confirmation label, the throw animation, and reset.
 
 ## Sharing the edge with half-tiling

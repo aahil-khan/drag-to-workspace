@@ -391,7 +391,7 @@ export default class EdgeTossPreferences extends ExtensionPreferences {
 
         const drop = new Adw.PreferencesGroup({title: 'Dropping'});
         drop.add(comboRow(settings, 'drop-action', 'A normal drop',
-            'The two options below swap this', [
+            'The options below change this', [
                 {value: 'stay', label: 'Stay here'},
                 {value: 'follow', label: 'Go with it'},
             ]));
@@ -406,6 +406,8 @@ export default class EdgeTossPreferences extends ExtensionPreferences {
                 {value: 'alt', label: 'Alt'},
                 {value: 'none', label: 'None'},
             ]));
+        swap.add(switchRow(settings, 'right-click-to-go', 'Right-click during the drag',
+            'Throws to the card under the pointer right away, and takes you there as soon as you let go'));
         page.add(swap);
 
         const targets = new Adw.PreferencesGroup({title: 'Workspaces'});

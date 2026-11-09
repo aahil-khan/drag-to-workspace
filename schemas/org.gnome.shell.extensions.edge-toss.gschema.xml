@@ -95,6 +95,10 @@
       <default>"ctrl"</default>
       <summary>Key that swaps sending and going with the window while held</summary>
     </key>
+    <key name="right-click-to-go" type="b">
+      <default>true</default>
+      <summary>Right-clicking during the drag throws the window and goes with it</summary>
+    </key>
     <key name="offer-new-workspace" type="b">
       <default>true</default>
       <summary>Offer a new workspace as a target</summary>

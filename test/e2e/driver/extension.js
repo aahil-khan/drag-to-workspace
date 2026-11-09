@@ -21,6 +21,7 @@ const ARM_SETTLE = 60;
 const OUT = GLib.getenv('EDGE_TOSS_OUT');
 const SCENARIO = GLib.getenv('EDGE_TOSS_SCENARIO') ?? 'single';
 const CLIENT = GLib.getenv('EDGE_TOSS_CLIENT');
+const ONLY = GLib.getenv('EDGE_TOSS_ONLY');
 
 const sleep = ms => new Promise(resolve => GLib.timeout_add(GLib.PRIORITY_DEFAULT, ms, () => {
     resolve();
@@ -87,6 +88,19 @@ export default class DriverExtension extends Extension {
     _button(pressed) {
         this._pointer.notify_button(now(), BTN_LEFT,
             pressed ? Clutter.ButtonState.PRESSED : Clutter.ButtonState.RELEASED);
+    }
+
+    _rightButton(pressed) {
+        this._pointer.notify_button(now(), Clutter.BUTTON_SECONDARY,
+            pressed ? Clutter.ButtonState.PRESSED : Clutter.ButtonState.RELEASED);
+    }
+
+    /** A right-click during a drag, with the left button still held afterwards. */
+    async _rightClick() {
+        this._rightButton(true);
+        await sleep(40);
+        this._rightButton(false);
+        await sleep(100);
     }
 
     _key(keyval, pressed) {
@@ -203,6 +217,8 @@ export default class DriverExtension extends Extension {
     // ---- scenarios ----
 
     async _test(name, fn) {
+        if (ONLY && !name.includes(ONLY))
+            return;
         const started = Date.now();
         console.log(`[edge-toss-driver] TEST ${name}`);
         try {
@@ -481,6 +497,178 @@ export default class DriverExtension extends Extension {
             check(card()._caption.text !== 'Go with it', 'did not swap back on release');
             await this._moveTo(800, 500);
             await this._drop();
+        });
+
+        await this._test('right-click on a card throws right away, and the view follows on letting go', async () => {
+            await this._spreadWorkspaces(['A', 'B', 'C']);
+            manager().get_workspace_by_index(0).activate(global.get_current_time());
+            await sleep(500);
+            const d = this._find('D');
+            d.activate(global.get_current_time());
+            await sleep(150);
+            const windowsBefore = global.display.list_all_windows().length;
+            await this._grabTitlebar(d);
+            await this._moveTo(RIGHT, 300);
+            await sleep(450);
+            check(session().phase === 'picker', `phase was ${session().phase}`);
+            const rect = session().layout.rects[1];
+            await this._moveTo(RIGHT, rect.y + rect.height / 2);
+            await sleep(100);
+            check(session().selected === 1, `selected ${session().selected}`);
+            check(session().followProgress < 1, 'the card had already filled');
+
+            this._slides = 0;
+            await this._rightClick();
+            await sleep(300);
+            check(d.get_workspace().index() === 2, `D on ${d.get_workspace().index()}`);
+            check(!toss.stateObj._drag, 'the drag session is still alive');
+            check(!toss.stateObj._overlay._picker, 'picker still up');
+            check(!d.get_maximize_flags(), 'D was left tiled');
+            // A slide with the left button down is what can abort the shell.
+            check(activeIndex() === 0, `switched with the button down, active is ${activeIndex()}`);
+            check(this._slides === 0, `played ${this._slides} slides with the button down`);
+
+            // Letting go switches, and lands on nothing: no menu, no focus change.
+            this._button(false);
+            await sleep(600);
+            check(activeIndex() === 2, `active is ${activeIndex()}`);
+            check(global.display.list_all_windows().length === windowsBefore, 'a menu or window appeared');
+            check(global.display.focus_window === d, `focus is ${global.display.focus_window?.get_title()}`);
+            check(d.get_workspace().index() === 2, `D moved again to ${d.get_workspace().index()}`);
+        });
+
+        await this._test('right-click before the picker opens goes to the next workspace', async () => {
+            await this._withSettings(toss, {'hold-delay-ms': 1500}, async () => {
+                const a = this._find('A');
+                await this._grabTitlebar(a);
+                await this._moveTo(RIGHT, 300);
+                await sleep(ARM_SETTLE);
+                check(session().phase === 'armed', `phase was ${session().phase}`);
+                await this._rightClick();
+                await sleep(200);
+                check(a.get_workspace().index() === 1, `A on ${a.get_workspace().index()}`);
+                check(activeIndex() === 0, `active is ${activeIndex()} with the button down`);
+                this._button(false);
+                await sleep(600);
+                check(activeIndex() === 1, `active is ${activeIndex()}`);
+            });
+        });
+
+        await this._test('right-click still goes along when a normal drop already does', async () => {
+            await this._withSettings(toss, {'drop-action': 'follow'}, async () => {
+                const a = this._find('A');
+                await this._grabTitlebar(a);
+                await this._moveTo(RIGHT, 300);
+                await sleep(ARM_SETTLE);
+                await this._rightClick();
+                await sleep(200);
+                this._button(false);
+                await sleep(600);
+                check(activeIndex() === 1, `active is ${activeIndex()}`);
+            });
+        });
+
+        await this._test('letting go of left before right still waits for both', async () => {
+            const a = this._find('A');
+            await this._grabTitlebar(a);
+            await this._moveTo(RIGHT, 300);
+            await sleep(ARM_SETTLE);
+            this._rightButton(true);
+            await sleep(200);
+            this._button(false);
+            await sleep(200);
+            check(activeIndex() === 0, `switched with right held, active is ${activeIndex()}`);
+            this._rightButton(false);
+            await sleep(600);
+            check(activeIndex() === 1, `active is ${activeIndex()}`);
+        });
+
+        await this._test('stress: 30 right-click throws at varied timings do not bring the shell down', async () => {
+            // The abort this guards against depends on timing, and the first version of
+            // right-click hit it within three throws. A crash here means no results at all.
+            const a = this._find('A');
+            for (let i = 0; i < 30; i++) {
+                await this._reset();
+                await this._grabTitlebar(a);
+                await this._moveTo(RIGHT, 300, {steps: 6, stepMs: 4});
+                await sleep([10, 60, 150, 400][i % 4]);
+                const clickLength = [0, 15, 40][i % 3];
+                this._rightButton(true);
+                await sleep(clickLength);
+                this._rightButton(false);
+                await sleep([0, 5, 30, 200][(i >> 1) % 4]);
+                this._button(false);
+                await sleep(450);
+                // A click over within a millisecond can be gone by the time the drop is
+                // handled, which then looks like a plain drop or like Escape. Not throwing
+                // is the safe reading of that. Real clicks last far longer, so those rounds
+                // are only here to probe for the crash.
+                if (clickLength > 0) {
+                    check(a.get_workspace().index() === 1, `round ${i}: A on ${a.get_workspace().index()}`);
+                    check(activeIndex() === 1, `round ${i}: active is ${activeIndex()}`);
+                }
+            }
+        });
+
+        await this._test('closing the window before letting go cancels the switch', async () => {
+            const a = this._find('A');
+            await this._grabTitlebar(a);
+            await this._moveTo(RIGHT, 300);
+            await sleep(ARM_SETTLE);
+            await this._rightClick();
+            await sleep(200);
+            check(a.get_workspace().index() === 1, `A on ${a.get_workspace().index()}`);
+            a.delete(global.get_current_time());
+            await sleep(400);
+            this._button(false);
+            await sleep(500);
+            check(activeIndex() === 0, `active is ${activeIndex()}`);
+            this._spawn('A');
+            await this._waitWindow('A');
+            await sleep(500);
+        });
+
+        await this._test('right-click turned off: it is a plain drop, and you stay', async () => {
+            await this._withSettings(toss, {'right-click-to-go': false}, async () => {
+                const a = this._find('A');
+                await this._grabTitlebar(a);
+                await this._moveTo(RIGHT, 300);
+                await sleep(ARM_SETTLE);
+                await this._rightClick();
+                await sleep(300);
+                this._button(false);
+                await sleep(200);
+                check(a.get_workspace().index() === 1, `A on ${a.get_workspace().index()}`);
+                check(activeIndex() === 0, `active is ${activeIndex()}`);
+            });
+        });
+
+        await this._test('a middle-click is a plain drop, not a right-click', async () => {
+            const a = this._find('A');
+            await this._grabTitlebar(a);
+            await this._moveTo(RIGHT, 300);
+            await sleep(ARM_SETTLE);
+            this._pointer.notify_button(now(), Clutter.BUTTON_MIDDLE, Clutter.ButtonState.PRESSED);
+            await sleep(40);
+            this._pointer.notify_button(now(), Clutter.BUTTON_MIDDLE, Clutter.ButtonState.RELEASED);
+            await sleep(200);
+            this._button(false);
+            await sleep(500);
+            check(a.get_workspace().index() === 1, `A on ${a.get_workspace().index()}`);
+            check(activeIndex() === 0, `active is ${activeIndex()}`);
+        });
+
+        await this._test('right-click away from the edge just ends the drag', async () => {
+            const a = this._find('A');
+            await this._grabTitlebar(a);
+            await this._moveTo(800, 500);
+            await sleep(80);
+            await this._rightClick();
+            await sleep(300);
+            this._button(false);
+            await sleep(200);
+            check(a.get_workspace().index() === 0, `A on ${a.get_workspace().index()}`);
+            check(activeIndex() === 0, `active is ${activeIndex()}`);
         });
 
         await this._test('hold-to-follow off: a long hold still just sends', async () => {

@@ -36,9 +36,20 @@ const MOVABLE_TYPES = new Set([
     Meta.WindowType.MODAL_DIALOG,
 ]);
 
-const ANY_BUTTON = Clutter.ModifierType.BUTTON1_MASK |
-    Clutter.ModifierType.BUTTON2_MASK |
-    Clutter.ModifierType.BUTTON3_MASK;
+const PRIMARY_BUTTON = Clutter.ModifierType.BUTTON1_MASK;
+// Not BUTTON3_MASK: Mutter indexes its mask table by Clutter's button number, where right
+// is 3 and middle is 2, against a table listing masks 1, 3, 2 (maskmap in meta-seat-impl.c).
+// So the right button sets BUTTON2_MASK and the middle one BUTTON3_MASK.
+const RIGHT_BUTTON = Clutter.ModifierType.BUTTON2_MASK;
+const OTHER_BUTTONS = RIGHT_BUTTON | Clutter.ModifierType.BUTTON3_MASK |
+    Clutter.ModifierType.BUTTON4_MASK | Clutter.ModifierType.BUTTON5_MASK;
+const ANY_BUTTON = PRIMARY_BUTTON | OTHER_BUTTONS;
+
+const BUTTONS_UP_POLL_MS = 16;
+// Seat state changes before the main loop has processed the release, so "up" has to hold
+// for a couple of polls before Clutter has caught up.
+const BUTTONS_UP_POLLS = 2;
+const BUTTONS_UP_GIVE_UP_MS = 15000;
 
 function isMouseMove(op) {
     return op === Meta.GrabOp.MOVING || op === Meta.GrabOp.MOVING_UNCONSTRAINED;
@@ -94,6 +105,7 @@ export default class EdgeTossExtension extends Extension {
 
     disable() {
         this._cancelDrag();
+        this._cancelPendingSwitch();
         for (const [object, id] of this._signals)
             object.disconnect(id);
         this._signals = null;
@@ -106,6 +118,7 @@ export default class EdgeTossExtension extends Extension {
 
     _onGrabBegin(win, op) {
         this._cancelDrag();
+        this._cancelPendingSwitch();
         if (!isMouseMove(op) || !canToss(win) || Main.overview.visible)
             return;
 
@@ -130,6 +143,7 @@ export default class EdgeTossExtension extends Extension {
             frameRect: win.get_frame_rect(),
             wasMaximized: win.is_maximized(),
             modifierMask: MODIFIER_MASKS[settings.get_string('follow-modifier')] ?? 0,
+            rightClickToGo: settings.get_boolean('right-click-to-go'),
             options: {
                 showHint: settings.get_boolean('show-hint'),
                 showConfirmation: settings.get_boolean('show-confirmation'),
@@ -222,11 +236,15 @@ export default class EdgeTossExtension extends Extension {
 
         this._tick();
         const [, y, mods] = global.get_pointer();
-        // Escape ends the grab with the button still held. Mutter has already put
-        // the window back, so there is nothing to throw.
-        const cancelled = (mods & ANY_BUTTON) !== 0;
+        // The grab ends in three ways. Letting go leaves no button held. Pressing an extra
+        // button also ends it, as a drop, with both held. Escape leaves only the primary
+        // held, and Mutter has already put the window back, so there is nothing to throw.
+        // A right-click too brief to still show here reads as Escape, the safe way round.
+        const cancelled = (mods & PRIMARY_BUTTON) !== 0 && (mods & OTHER_BUTTONS) === 0;
         const modifierHeld = (mods & drag.modifierMask) !== 0;
-        const decision = cancelled ? null : drag.session.decide(modifierHeld);
+        const goNow = drag.rightClickToGo && (mods & RIGHT_BUTTON) !== 0;
+        const decision = cancelled ? null : drag.session.decide(modifierHeld, goNow);
+        const buttonsHeld = (mods & ANY_BUTTON) !== 0;
         const side = drag.session.side;
         const monitor = drag.monitors[drag.session.monitorIndex];
 
@@ -234,12 +252,14 @@ export default class EdgeTossExtension extends Extension {
         if (!decision)
             return;
 
-        const snapshot = decision.follow || !drag.options.animateThrow
+        // With a button still down the view can't switch yet, so it looks like a throw until then.
+        const switchesNow = decision.follow && !buttonsHeld;
+        const snapshot = switchesNow || !drag.options.animateThrow
             ? null
             : this._snapshotWindow(win);
         const laters = global.compositor.get_laters();
         laters.add(Meta.LaterType.BEFORE_REDRAW, () => {
-            this._toss(win, drag, decision, {snapshot, side, monitor, y});
+            this._toss(win, drag, decision, {snapshot, side, monitor, y, switchesNow});
             return GLib.SOURCE_REMOVE;
         });
     }
@@ -256,7 +276,7 @@ export default class EdgeTossExtension extends Extension {
         }
     }
 
-    _toss(win, drag, {target, follow}, {snapshot, side, monitor, y}) {
+    _toss(win, drag, {target, follow}, {snapshot, side, monitor, y, switchesNow}) {
         // The window may have closed, or the extension gone away, since the drop.
         if (!this._overlay || !win.get_compositor_private())
             return;
@@ -285,14 +305,52 @@ export default class EdgeTossExtension extends Extension {
 
         win.change_workspace(workspace);
 
-        if (follow) {
+        if (switchesNow) {
             workspace.activate_with_focus(win, global.get_current_time());
             return;
         }
+        if (follow)
+            this._switchOnceButtonsUp(win, workspace);
 
         if (snapshot)
             this._overlay.flyOut(snapshot.content, snapshot.rect, side, monitor);
         if (drag.options.showConfirmation)
             this._overlay.confirm(side, target, monitor, y);
+    }
+
+    /**
+     * Switches workspace after every mouse button is up. The switch animation grabs the
+     * stage, and with a button held that can trip an assertion in Clutter that aborts the
+     * whole shell (clutter_sprite_notify_grab). A right-click during a drag always leaves
+     * the left button held.
+     */
+    _switchOnceButtonsUp(win, workspace) {
+        this._cancelPendingSwitch();
+
+        const started = GLib.get_monotonic_time();
+        let upPolls = 0;
+        this._pendingSwitchId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, BUTTONS_UP_POLL_MS, () => {
+            const [, , mods] = global.get_pointer();
+            upPolls = (mods & ANY_BUTTON) === 0 ? upPolls + 1 : 0;
+
+            const waited = (GLib.get_monotonic_time() - started) / 1000;
+            if (upPolls < BUTTONS_UP_POLLS && waited < BUTTONS_UP_GIVE_UP_MS)
+                return GLib.SOURCE_CONTINUE;
+
+            this._pendingSwitchId = 0;
+            // On giving up the window has still been thrown, you just haven't followed it.
+            const stillThere = win.get_compositor_private() && win.get_workspace() === workspace;
+            if (upPolls >= BUTTONS_UP_POLLS && stillThere)
+                workspace.activate_with_focus(win, global.get_current_time());
+            return GLib.SOURCE_REMOVE;
+        });
+        GLib.Source.set_name_by_id(this._pendingSwitchId, '[edge-toss] switch once buttons are up');
+    }
+
+    _cancelPendingSwitch() {
+        if (this._pendingSwitchId) {
+            GLib.source_remove(this._pendingSwitchId);
+            this._pendingSwitchId = 0;
+        }
     }
 }

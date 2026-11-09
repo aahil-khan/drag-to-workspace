@@ -36,6 +36,7 @@ run_scenario() {
         XDG_CURRENT_DESKTOP=GNOME \
         EDGE_TOSS_OUT="$OUT" \
         EDGE_TOSS_SCENARIO="$scenario" \
+        EDGE_TOSS_ONLY="${EDGE_TOSS_ONLY:-}" \
         EDGE_TOSS_CLIENT="$ROOT/test/e2e/client.js" \
         dbus-run-session -- bash -c '
             dconf write /org/gnome/shell/enabled-extensions "[\"'"$UUID"'\", \"'"$DRIVER"'\"]"

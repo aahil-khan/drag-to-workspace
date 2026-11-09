@@ -170,6 +170,12 @@ test('quick drop with the modifier goes with the window', () => {
     assert.equal(armedAt(session()).decide(true).follow, true);
 });
 
+test('a right-click goes with the window, whatever else is going on', () => {
+    assert.equal(armedAt(session()).decide(false, true).follow, true);
+    assert.equal(armedAt(session({dropAction: 'follow'})).decide(true, true).follow, true);
+    assert.equal(session().decide(false, true), null);
+});
+
 test('drop-action "follow" inverts the modifier', () => {
     const s = armedAt(session({dropAction: 'follow'}));
     assert.equal(s.decide().follow, true);

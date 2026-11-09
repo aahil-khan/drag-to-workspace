@@ -533,6 +533,7 @@ export default class DriverExtension extends Extension {
             await sleep(600);
             check(activeIndex() === 2, `active is ${activeIndex()}`);
             check(global.display.list_all_windows().length === windowsBefore, 'a menu or window appeared');
+            check(!global.stage.get_grab_actor(), 'something is holding a grab, like the desktop menu');
             check(global.display.focus_window === d, `focus is ${global.display.focus_window?.get_title()}`);
             check(d.get_workspace().index() === 2, `D moved again to ${d.get_workspace().index()}`);
         });
@@ -592,21 +593,15 @@ export default class DriverExtension extends Extension {
                 await this._grabTitlebar(a);
                 await this._moveTo(RIGHT, 300, {steps: 6, stepMs: 4});
                 await sleep([10, 60, 150, 400][i % 4]);
-                const clickLength = [0, 15, 40][i % 3];
                 this._rightButton(true);
-                await sleep(clickLength);
+                await sleep([0, 15, 40][i % 3]);
                 this._rightButton(false);
                 await sleep([0, 5, 30, 200][(i >> 1) % 4]);
                 this._button(false);
                 await sleep(450);
-                // A click over within a millisecond can be gone by the time the drop is
-                // handled, which then looks like a plain drop or like Escape. Not throwing
-                // is the safe reading of that. Real clicks last far longer, so those rounds
-                // are only here to probe for the crash.
-                if (clickLength > 0) {
-                    check(a.get_workspace().index() === 1, `round ${i}: A on ${a.get_workspace().index()}`);
-                    check(activeIndex() === 1, `round ${i}: active is ${activeIndex()}`);
-                }
+                check(a.get_workspace().index() === 1, `round ${i}: A on ${a.get_workspace().index()}`);
+                check(activeIndex() === 1, `round ${i}: active is ${activeIndex()}`);
+                check(!global.stage.get_grab_actor(), `round ${i}: a grab was left behind`);
             }
         });
 
@@ -889,6 +884,34 @@ export default class DriverExtension extends Extension {
             check(a.get_workspace().index() === 1, `A on ${a.get_workspace().index()}`);
             check(a.get_maximize_flags() === 0, 'A was left tiled');
             check(sameRect(rectOf(a), before), `rect ${JSON.stringify(rectOf(a))} vs ${JSON.stringify(before)}`);
+        });
+
+        await this._test('Escape while a button is pressed too: still a cancel', async () => {
+            const a = this._find('A');
+            const before = rectOf(a);
+            await this._grabTitlebar(a);
+            await this._moveTo(RIGHT, 300);
+            await sleep(450);
+            check(session().phase === 'picker', `phase was ${session().phase}`);
+            this._key(KEY_ESCAPE, true);
+            this._key(KEY_ESCAPE, false);
+            await sleep(100);
+            this._rightButton(true);
+            await sleep(30);
+            this._rightButton(false);
+            await sleep(150);
+            this._button(false);
+            await sleep(300);
+            check(a.get_workspace().index() === 0, `A on ${a.get_workspace().index()}`);
+            check(activeIndex() === 0, `active is ${activeIndex()}`);
+            check(sameRect(rectOf(a), before), `rect ${JSON.stringify(rectOf(a))} vs ${JSON.stringify(before)}`);
+
+            // The drag is over by then, so that right-click reached the desktop, whose menu
+            // is GNOME's own behaviour. Close it for the next test.
+            this._key(KEY_ESCAPE, true);
+            this._key(KEY_ESCAPE, false);
+            await sleep(300);
+            check(!global.stage.get_grab_actor(), 'the desktop menu is still open');
         });
 
         await this._test('Escape cancels: no throw, window back', async () => {

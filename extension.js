@@ -36,14 +36,9 @@ const MOVABLE_TYPES = new Set([
     Meta.WindowType.MODAL_DIALOG,
 ]);
 
-const PRIMARY_BUTTON = Clutter.ModifierType.BUTTON1_MASK;
-// Not BUTTON3_MASK: Mutter indexes its mask table by Clutter's button number, where right
-// is 3 and middle is 2, against a table listing masks 1, 3, 2 (maskmap in meta-seat-impl.c).
-// So the right button sets BUTTON2_MASK and the middle one BUTTON3_MASK.
-const RIGHT_BUTTON = Clutter.ModifierType.BUTTON2_MASK;
-const OTHER_BUTTONS = RIGHT_BUTTON | Clutter.ModifierType.BUTTON3_MASK |
-    Clutter.ModifierType.BUTTON4_MASK | Clutter.ModifierType.BUTTON5_MASK;
-const ANY_BUTTON = PRIMARY_BUTTON | OTHER_BUTTONS;
+const ANY_BUTTON = Clutter.ModifierType.BUTTON1_MASK | Clutter.ModifierType.BUTTON2_MASK |
+    Clutter.ModifierType.BUTTON3_MASK | Clutter.ModifierType.BUTTON4_MASK |
+    Clutter.ModifierType.BUTTON5_MASK;
 
 const BUTTONS_UP_POLL_MS = 16;
 // Seat state changes before the main loop has processed the release, so "up" has to hold
@@ -163,6 +158,22 @@ export default class EdgeTossExtension extends Extension {
             }),
         };
 
+        // Mutter ends the drag on Escape and on any extra button press, and the signal doesn't
+        // say why. Button state read afterwards can't tell either: it may have moved on since.
+        // A filter sees each event first, even with the drag's grab in place.
+        const drag = this._drag;
+        this._eventFilterId = Clutter.Event.add_filter(global.stage, event => {
+            const type = event.type();
+            if (type === Clutter.EventType.KEY_PRESS && event.get_key_symbol() === Clutter.KEY_Escape) {
+                drag.escaped = true;
+            } else if (type === Clutter.EventType.BUTTON_PRESS) {
+                drag.extraButtonPressed = true;
+                if (event.get_button() === Clutter.BUTTON_SECONDARY)
+                    drag.rightClicked = true;
+            }
+            return Clutter.EVENT_PROPAGATE;
+        });
+
         this._pollId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, POLL_MS, () => {
             this._tick();
             return GLib.SOURCE_CONTINUE;
@@ -225,6 +236,10 @@ export default class EdgeTossExtension extends Extension {
 
     _cancelDrag() {
         this._stopPolling();
+        if (this._eventFilterId) {
+            Clutter.Event.remove_filter(this._eventFilterId);
+            this._eventFilterId = 0;
+        }
         this._drag = null;
         this._overlay?.clear();
     }
@@ -236,15 +251,11 @@ export default class EdgeTossExtension extends Extension {
 
         this._tick();
         const [, y, mods] = global.get_pointer();
-        // The grab ends in three ways. Letting go leaves no button held. Pressing an extra
-        // button also ends it, as a drop, with both held. Escape leaves only the primary
-        // held, and Mutter has already put the window back, so there is nothing to throw.
-        // A right-click too brief to still show here reads as Escape, the safe way round.
-        const cancelled = (mods & PRIMARY_BUTTON) !== 0 && (mods & OTHER_BUTTONS) === 0;
+        // After Escape, Mutter has already put the window back, so there is nothing to throw.
         const modifierHeld = (mods & drag.modifierMask) !== 0;
-        const goNow = drag.rightClickToGo && (mods & RIGHT_BUTTON) !== 0;
-        const decision = cancelled ? null : drag.session.decide(modifierHeld, goNow);
-        const buttonsHeld = (mods & ANY_BUTTON) !== 0;
+        const goNow = drag.rightClickToGo && drag.rightClicked;
+        const decision = drag.escaped ? null : drag.session.decide(modifierHeld, goNow);
+        const buttonsHeld = drag.extraButtonPressed || (mods & ANY_BUTTON) !== 0;
         const side = drag.session.side;
         const monitor = drag.monitors[drag.session.monitorIndex];
 

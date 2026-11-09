@@ -502,8 +502,8 @@ export default class EdgeTossExtension extends Extension {
 
     /**
      * Puts a window back where it was before the drag, and keeps it there for a moment. On
-     * GNOME 48 and older, the app's reply to the update sent at the end of the drag arrives
-     * later and moves the window back to where it was dropped.
+     * older versions of GNOME, the app's replies to the updates sent at the end of the drag
+     * arrive later, and move the window back to where it was dropped or tiled.
      */
     _restoreFrame(win, rect) {
         this._stopHoldingFrame();
@@ -511,28 +511,39 @@ export default class EdgeTossExtension extends Extension {
         const apply = () => win.move_resize_frame(false, rect.x, rect.y, rect.width, rect.height);
         apply();
 
+        const hold = {win, laterId: 0};
+        // Not straight away: Mutter is still handling the reply when these signals fire, and
+        // it would overwrite the change as it finishes.
         const onChanged = () => {
-            if (!win.get_frame_rect().equal(rect))
+            if (hold.laterId || win.get_frame_rect().equal(rect))
+                return;
+            hold.laterId = global.compositor.get_laters().add(Meta.LaterType.BEFORE_REDRAW, () => {
+                hold.laterId = 0;
                 apply();
+                return GLib.SOURCE_REMOVE;
+            });
         };
-        const signalIds = [
+        hold.signalIds = [
             win.connect('position-changed', onChanged),
             win.connect('size-changed', onChanged),
         ];
-        const timeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, FRAME_HOLD_MS, () => {
-            this._stopHoldingFrame(true);
+        hold.timeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, FRAME_HOLD_MS, () => {
+            hold.timeoutId = 0;
+            this._stopHoldingFrame();
             return GLib.SOURCE_REMOVE;
         });
-        this._frameHold = {win, signalIds, timeoutId};
+        this._frameHold = hold;
     }
 
-    _stopHoldingFrame(fromTimeout = false) {
+    _stopHoldingFrame() {
         if (!this._frameHold)
             return;
-        const {win, signalIds, timeoutId} = this._frameHold;
+        const {win, signalIds, timeoutId, laterId} = this._frameHold;
         signalIds.forEach(id => win.disconnect(id));
-        if (!fromTimeout)
+        if (timeoutId)
             GLib.source_remove(timeoutId);
+        if (laterId)
+            global.compositor.get_laters().remove(laterId);
         this._frameHold = null;
     }
 

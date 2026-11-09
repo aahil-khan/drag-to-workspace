@@ -754,8 +754,14 @@ export default class DriverExtension extends Extension {
             await sleep(400);
             check(a.get_workspace().index() === 1, `A on ${a.get_workspace().index()}`);
             check(activeIndex() === 0, `active is ${activeIndex()}`);
-            check(sameRect(rectOf(a), before), `rect ${JSON.stringify(rectOf(a))} vs ${JSON.stringify(before)}`);
             check(maxFlags(a) === 0, 'A was left tiled');
+
+            // A hidden window doesn't redraw, so on older versions its size only settles once
+            // it's visible again. What counts is how it looks when you go there.
+            manager().get_workspace_by_index(1).activate(global.get_current_time());
+            await sleep(800);
+            check(sameRect(rectOf(a), before), `rect ${JSON.stringify(rectOf(a))} vs ${JSON.stringify(before)}`);
+            await this._shot('35-touch-window-after-visiting');
         });
 
         await this._test('touch: holding opens the picker, and a card can be chosen', async () => {

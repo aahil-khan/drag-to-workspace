@@ -30,6 +30,8 @@ known_error() {
     esac
 }
 
+BUILD_TIMEOUT=${EDGE_TOSS_BUILD_TIMEOUT:-1500}
+
 only=""
 if [ "${1:-}" = "--only" ]; then
     only=$2
@@ -37,17 +39,27 @@ if [ "${1:-}" = "--only" ]; then
 fi
 wanted=" $* "
 
+# A retired Fedora's mirror list is mostly dead ends, so go straight to the archive.
+archive_repos() {
+    case $1 in
+        *fedora:41)
+            local archive='https://dl.fedoraproject.org/pub/archive/fedora/linux'
+            echo "sed -i 's|^metalink=.*|baseurl=$archive/releases/41/Everything/x86_64/os/|' /etc/yum.repos.d/fedora.repo && sed -i 's|^metalink=.*|baseurl=$archive/updates/41/Everything/x86_64/|' /etc/yum.repos.d/fedora-updates.repo && "
+            ;;
+    esac
+}
+
 build_image() {
     local tag=$1 base=$2 manager=$3
     if [ "$manager" = apt ]; then
-        podman build -q -t "$tag" - <<EOF
+        timeout "$BUILD_TIMEOUT" podman build -q -t "$tag" - <<EOF
 FROM $base
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends $DEBIAN_PKGS
 EOF
     else
-        podman build -q -t "$tag" - <<EOF
+        timeout "$BUILD_TIMEOUT" podman build -q -t "$tag" - <<EOF
 FROM $base
-RUN dnf install -y --setopt=install_weak_deps=False --setopt=strict=0 $FEDORA_PKGS
+RUN $(archive_repos "$base")dnf install -y --setopt=install_weak_deps=False --setopt=strict=0 $FEDORA_PKGS
 EOF
     fi
 }

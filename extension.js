@@ -18,6 +18,7 @@ import {Extension, InjectionManager} from 'resource:///org/gnome/shell/extension
 
 import {computeTargets, DragSession, Phase} from './lib/logic.js';
 import {Overlay} from './lib/ui.js';
+import {hasMaximizedState, isMaximized, maximize, unmaximize} from './lib/windowState.js';
 
 const POLL_MS = 16;
 
@@ -39,6 +40,8 @@ const MOVABLE_TYPES = new Set([
 const ANY_BUTTON = Clutter.ModifierType.BUTTON1_MASK | Clutter.ModifierType.BUTTON2_MASK |
     Clutter.ModifierType.BUTTON3_MASK | Clutter.ModifierType.BUTTON4_MASK |
     Clutter.ModifierType.BUTTON5_MASK;
+
+const FRAME_HOLD_MS = 500;
 
 const BUTTONS_UP_POLL_MS = 16;
 // Seat state changes before the main loop has processed the release, so "up" has to hold
@@ -101,6 +104,11 @@ export default class EdgeTossExtension extends Extension {
     disable() {
         this._cancelDrag();
         this._cancelPendingSwitch();
+        this._stopHoldingFrame();
+        if (this._tossLaterId) {
+            global.compositor.get_laters().remove(this._tossLaterId);
+            this._tossLaterId = 0;
+        }
         for (const [object, id] of this._signals)
             object.disconnect(id);
         this._signals = null;
@@ -114,6 +122,7 @@ export default class EdgeTossExtension extends Extension {
     _onGrabBegin(win, op) {
         this._cancelDrag();
         this._cancelPendingSwitch();
+        this._stopHoldingFrame();
         if (!isMouseMove(op) || !canToss(win) || Main.overview.visible)
             return;
 
@@ -136,8 +145,8 @@ export default class EdgeTossExtension extends Extension {
             monitors,
             originMonitor,
             frameRect: win.get_frame_rect(),
-            wasMaximized: win.is_maximized(),
-            modifierMask: MODIFIER_MASKS[settings.get_string('follow-modifier')] ?? 0,
+            wasMaximized: isMaximized(win),
+            modifierMask: MODIFIER_MASKS[settings.get_string('follow-modifier')],
             rightClickToGo: settings.get_boolean('right-click-to-go'),
             options: {
                 showHint: settings.get_boolean('show-hint'),
@@ -241,7 +250,7 @@ export default class EdgeTossExtension extends Extension {
             this._eventFilterId = 0;
         }
         this._drag = null;
-        this._overlay?.clear();
+        this._overlay.clear();
     }
 
     _onGrabEnd(win, op) {
@@ -268,8 +277,8 @@ export default class EdgeTossExtension extends Extension {
         const snapshot = switchesNow || !drag.options.animateThrow
             ? null
             : this._snapshotWindow(win);
-        const laters = global.compositor.get_laters();
-        laters.add(Meta.LaterType.BEFORE_REDRAW, () => {
+        this._tossLaterId = global.compositor.get_laters().add(Meta.LaterType.BEFORE_REDRAW, () => {
+            this._tossLaterId = 0;
             this._toss(win, drag, decision, {snapshot, side, monitor, y, switchesNow});
             return GLib.SOURCE_REMOVE;
         });
@@ -277,28 +286,21 @@ export default class EdgeTossExtension extends Extension {
 
     _snapshotWindow(win) {
         const actor = win.get_compositor_private();
-        if (!actor)
-            return null;
-        try {
-            return {content: actor.paint_to_content(null), rect: win.get_frame_rect()};
-        } catch (e) {
-            console.warn(`[edge-toss] could not snapshot window: ${e.message}`);
-            return null;
-        }
+        return {content: actor.paint_to_content(null), rect: win.get_frame_rect()};
     }
 
     _toss(win, drag, {target, follow}, {snapshot, side, monitor, y, switchesNow}) {
-        // The window may have closed, or the extension gone away, since the drop.
-        if (!this._overlay || !win.get_compositor_private())
+        // The window may have closed since the drop.
+        if (!win.get_compositor_private())
             return;
 
         // Put it back as it was before the drag. That also undoes any tile.
-        if (win.get_maximize_flags() !== 0)
-            win.unmaximize();
+        if (hasMaximizedState(win))
+            unmaximize(win);
         const r = drag.frameRect;
-        win.move_resize_frame(false, r.x, r.y, r.width, r.height);
+        this._restoreFrame(win, r);
         if (drag.wasMaximized)
-            win.maximize();
+            maximize(win);
 
         const manager = global.workspace_manager;
         let workspace;
@@ -356,6 +358,42 @@ export default class EdgeTossExtension extends Extension {
             return GLib.SOURCE_REMOVE;
         });
         GLib.Source.set_name_by_id(this._pendingSwitchId, '[edge-toss] switch once buttons are up');
+    }
+
+    /**
+     * Puts a window back where it was before the drag, and keeps it there for a moment. On
+     * GNOME 48 and older, the app's reply to the update sent at the end of the drag arrives
+     * later and moves the window back to where it was dropped.
+     */
+    _restoreFrame(win, rect) {
+        this._stopHoldingFrame();
+
+        const apply = () => win.move_resize_frame(false, rect.x, rect.y, rect.width, rect.height);
+        apply();
+
+        const onChanged = () => {
+            if (!win.get_frame_rect().equal(rect))
+                apply();
+        };
+        const signalIds = [
+            win.connect('position-changed', onChanged),
+            win.connect('size-changed', onChanged),
+        ];
+        const timeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, FRAME_HOLD_MS, () => {
+            this._stopHoldingFrame(true);
+            return GLib.SOURCE_REMOVE;
+        });
+        this._frameHold = {win, signalIds, timeoutId};
+    }
+
+    _stopHoldingFrame(fromTimeout = false) {
+        if (!this._frameHold)
+            return;
+        const {win, signalIds, timeoutId} = this._frameHold;
+        signalIds.forEach(id => win.disconnect(id));
+        if (!fromTimeout)
+            GLib.source_remove(timeoutId);
+        this._frameHold = null;
     }
 
     _cancelPendingSwitch() {

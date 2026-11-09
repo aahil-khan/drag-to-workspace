@@ -1,7 +1,7 @@
 UUID := edge-toss@aahil-khan.github.com
 EXT_DIR := $(HOME)/.local/share/gnome-shell/extensions/$(UUID)
 
-.PHONY: test schemas e2e install uninstall pack
+.PHONY: test schemas e2e install uninstall pack matrix
 
 test:
 	node --test test/logic.test.js
@@ -20,6 +20,10 @@ install: schemas
 uninstall:
 	rm -f $(EXT_DIR)
 
-pack: schemas
-	mkdir -p dist
-	gnome-extensions pack --force --out-dir=dist --extra-source=lib --schema=schemas/org.gnome.shell.extensions.edge-toss.gschema.xml .
+# One zip per range of GNOME versions.
+pack:
+	scripts/pack.sh
+
+# The end-to-end tests against each zip, on the distros it targets, in containers.
+matrix: pack
+	test/e2e/matrix.sh

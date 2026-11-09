@@ -20,7 +20,8 @@ run_scenario() {
 
     mkdir -p "$sandbox"/{home,config,cache,runtime,data/gnome-shell/extensions} "$OUT"
     chmod 700 "$sandbox/runtime"
-    ln -s "$ROOT" "$sandbox/data/gnome-shell/extensions/$UUID"
+    # EDGE_TOSS_EXT_DIR tests a built package instead of this checkout.
+    ln -s "${EDGE_TOSS_EXT_DIR:-$ROOT}" "$sandbox/data/gnome-shell/extensions/$UUID"
     ln -s "$ROOT/test/e2e/driver" "$sandbox/data/gnome-shell/extensions/$DRIVER"
     rm -f "$OUT/results-$scenario.json"
 
@@ -34,9 +35,11 @@ run_scenario() {
         XDG_DATA_DIRS=/usr/local/share:/usr/share \
         XDG_SESSION_TYPE=wayland \
         XDG_CURRENT_DESKTOP=GNOME \
+        WAYLAND_DISPLAY=edge-toss-test \
         EDGE_TOSS_OUT="$OUT" \
         EDGE_TOSS_SCENARIO="$scenario" \
         EDGE_TOSS_ONLY="${EDGE_TOSS_ONLY:-}" \
+        EDGE_TOSS_PREFS_BASIC="${EDGE_TOSS_PREFS_BASIC:-}" \
         EDGE_TOSS_CLIENT="$ROOT/test/e2e/client.js" \
         dbus-run-session -- bash -c '
             dconf write /org/gnome/shell/enabled-extensions "[\"'"$UUID"'\", \"'"$DRIVER"'\"]"
@@ -49,7 +52,8 @@ run_scenario() {
                 --wayland-display=edge-toss-test "$@"
         ' _ "$@" >"$OUT/shell-$scenario.log" 2>&1 || true
 
-    if ! node "$ROOT/test/e2e/report.mjs" "$OUT/results-$scenario.json" "$OUT/shell-$scenario.log"; then
+    # In a container there's no node, and the matrix reports from the host instead.
+    if [ -z "${EDGE_TOSS_NO_REPORT:-}" ] && ! node "$ROOT/test/e2e/report.mjs" "$OUT/results-$scenario.json" "$OUT/shell-$scenario.log"; then
         status=1
     fi
 }
@@ -59,6 +63,7 @@ for s in $scenarios; do
     case $s in
         single) run_scenario single --virtual-monitor 1600x1000 ;;
         prefs) run_scenario prefs --virtual-monitor 1600x1000 ;;
+        control) run_scenario control --virtual-monitor 1600x1000 ;;
         dual) run_scenario dual --virtual-monitor 1280x800 --virtual-monitor 1280x800 ;;
         *) echo "unknown scenario: $s" >&2; exit 2 ;;
     esac

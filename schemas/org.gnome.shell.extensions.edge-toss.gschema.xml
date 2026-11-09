@@ -1,22 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist>
   <schema id="org.gnome.shell.extensions.edge-toss" path="/org/gnome/shell/extensions/edge-toss/">
-    <!-- tile-zone and tile-zone-size are unused. They stay so that a shell still running
-         version 1's code, which reads them, can't abort on a missing key after an update. -->
-    <key name="tile-zone" type="s">
-      <choices>
-        <choice value="bottom"/>
-        <choice value="top"/>
-        <choice value="none"/>
-      </choices>
-      <default>"bottom"</default>
-      <summary>Part of the side edge left to GNOME's half-tiling</summary>
-    </key>
-    <key name="tile-zone-size" type="i">
-      <range min="10" max="60"/>
-      <default>33</default>
-      <summary>Height of the tiling part of the edge, in percent</summary>
-    </key>
     <key name="hold-delay-ms" type="i">
       <range min="100" max="1500"/>
       <default>350</default>
@@ -25,7 +9,7 @@
     <key name="follow-delay-ms" type="i">
       <range min="200" max="3000"/>
       <default>1200</default>
-      <summary>How long to hold on a workspace in the picker until it swaps sending and going with the window</summary>
+      <summary>How long to hold over a workspace in the picker until it fills up</summary>
     </key>
     <key name="drop-action" type="s">
       <choices>
@@ -33,40 +17,40 @@
         <choice value="follow"/>
       </choices>
       <default>"stay"</default>
-      <summary>What a normal drop does: leave you here, or take you with the window</summary>
+      <summary>Whether to stay on the current workspace or go with the window when dropping it</summary>
     </key>
 
     <key name="left-enabled" type="b">
       <default>true</default>
-      <summary>Throw from the left edge</summary>
+      <summary>Use the left screen edge</summary>
     </key>
     <key name="left-zone-start" type="i">
       <range min="0" max="95"/>
       <default>0</default>
-      <summary>Top of the throwing area on the left edge, in percent of its height</summary>
+      <summary>Top of the left edge's zone, as a percentage of its height</summary>
     </key>
     <key name="left-zone-end" type="i">
       <range min="5" max="100"/>
       <default>67</default>
-      <summary>Bottom of the throwing area on the left edge, in percent of its height</summary>
+      <summary>Bottom of the left edge's zone, as a percentage of its height</summary>
     </key>
     <key name="right-enabled" type="b">
       <default>true</default>
-      <summary>Throw from the right edge</summary>
+      <summary>Use the right screen edge</summary>
     </key>
     <key name="right-zone-start" type="i">
       <range min="0" max="95"/>
       <default>0</default>
-      <summary>Top of the throwing area on the right edge, in percent of its height</summary>
+      <summary>Top of the right edge's zone, as a percentage of its height</summary>
     </key>
     <key name="right-zone-end" type="i">
       <range min="5" max="100"/>
       <default>67</default>
-      <summary>Bottom of the throwing area on the right edge, in percent of its height</summary>
+      <summary>Bottom of the right edge's zone, as a percentage of its height</summary>
     </key>
     <key name="link-edges" type="b">
       <default>true</default>
-      <summary>Keep the throwing area the same on both edges</summary>
+      <summary>Use the same zone on both edges</summary>
     </key>
     <key name="edge-depth" type="i">
       <range min="1" max="150"/>
@@ -79,12 +63,12 @@
         <choice value="primary"/>
       </choices>
       <default>"all"</default>
-      <summary>Which monitors' edges throw windows</summary>
+      <summary>Which monitors' edges move windows</summary>
     </key>
 
     <key name="hold-to-follow" type="b">
       <default>true</default>
-      <summary>Holding on a workspace in the picker swaps sending and going with the window</summary>
+      <summary>Holding over a workspace in the picker does the opposite of the usual drop</summary>
     </key>
     <key name="follow-modifier" type="s">
       <choices>
@@ -93,11 +77,11 @@
         <choice value="none"/>
       </choices>
       <default>"ctrl"</default>
-      <summary>Key that swaps sending and going with the window while held</summary>
+      <summary>Key that does the opposite of the usual drop while held</summary>
     </key>
     <key name="right-click-to-go" type="b">
       <default>true</default>
-      <summary>Right-clicking during the drag throws the window and goes with it</summary>
+      <summary>Right-clicking while dragging moves the window and goes with it</summary>
     </key>
     <key name="offer-new-workspace" type="b">
       <default>true</default>
@@ -106,15 +90,15 @@
 
     <key name="show-hint" type="b">
       <default>true</default>
-      <summary>Show the throwing area along the edge while approaching it</summary>
+      <summary>Highlight zones while dragging a window near them</summary>
     </key>
     <key name="show-confirmation" type="b">
       <default>true</default>
-      <summary>Briefly show where the window went</summary>
+      <summary>Briefly show the destination workspace after a move</summary>
     </key>
     <key name="animate-throw" type="b">
       <default>true</default>
-      <summary>Animate the window flying off the edge</summary>
+      <summary>Animate moved windows sliding off the edge</summary>
     </key>
     <key name="card-width" type="i">
       <range min="120" max="360"/>

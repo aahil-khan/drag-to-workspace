@@ -38,6 +38,12 @@ const rectOf = win => {
 
 class Failure extends Error {}
 
+// The driver runs on every version, so unlike the extension it checks at runtime.
+const isMax = win => (win.is_maximized ? win.is_maximized() : win.get_maximized() === Meta.MaximizeFlags.BOTH);
+const maxFlags = win => (win.get_maximize_flags ? win.get_maximize_flags() : win.get_maximized());
+const setMax = win => (win.get_maximized ? win.maximize(Meta.MaximizeFlags.BOTH) : win.maximize());
+const clearMax = win => (win.get_maximized ? win.unmaximize(Meta.MaximizeFlags.BOTH) : win.unmaximize());
+
 function variantFor(value) {
     if (typeof value === 'boolean')
         return GLib.Variant.new_boolean(value);
@@ -62,7 +68,7 @@ export default class DriverExtension extends Extension {
             return;
         globalThis.__edgeTossDriverStarted = true;
 
-        const seat = Clutter.get_default_backend().get_default_seat();
+        const seat = (Clutter.get_default_backend?.() ?? global.stage.get_context().get_backend()).get_default_seat();
         this._pointer = seat.create_virtual_device(Clutter.InputDeviceType.POINTER_DEVICE);
         this._keyboard = seat.create_virtual_device(Clutter.InputDeviceType.KEYBOARD_DEVICE);
         this._results = [];
@@ -172,8 +178,8 @@ export default class DriverExtension extends Extension {
             const win = this._find(title);
             if (!win)
                 return;
-            if (win.get_maximize_flags() !== 0)
-                win.unmaximize();
+            if (maxFlags(win) !== 0)
+                clearMax(win);
             win.change_workspace_by_index(0, false);
             win.move_resize_frame(false, place[i][0], place[i][1], 640, 420);
             win.unminimize();
@@ -265,7 +271,7 @@ export default class DriverExtension extends Extension {
             check(a.get_workspace().index() === 1, `A on workspace ${a.get_workspace().index()}`);
             check(activeIndex() === 0, `active is ${activeIndex()}`);
             check(sameRect(rectOf(a), before), `rect ${JSON.stringify(rectOf(a))} vs ${JSON.stringify(before)}`);
-            check(a.get_maximize_flags() === 0, 'A was left tiled');
+            check(maxFlags(a) === 0, 'A was left tiled');
             const focus = global.display.focus_window;
             check(focus && focus !== a && focus.get_workspace().index() === 0,
                 `focus went to ${focus?.get_title()}`);
@@ -304,7 +310,7 @@ export default class DriverExtension extends Extension {
             await sleep(300);
             check(a.get_workspace().index() === 1, `A on ${a.get_workspace().index()}`);
             check(activeIndex() === 0, `active is ${activeIndex()}`);
-            check(a.get_maximize_flags() === 0, 'A was left tiled');
+            check(maxFlags(a) === 0, 'A was left tiled');
             check(sameRect(rectOf(a), before), `rect ${JSON.stringify(rectOf(a))} vs ${JSON.stringify(before)}`);
         });
 
@@ -523,7 +529,7 @@ export default class DriverExtension extends Extension {
             check(d.get_workspace().index() === 2, `D on ${d.get_workspace().index()}`);
             check(!toss.stateObj._drag, 'the drag session is still alive');
             check(!toss.stateObj._overlay._picker, 'picker still up');
-            check(!d.get_maximize_flags(), 'D was left tiled');
+            check(!maxFlags(d), 'D was left tiled');
             // A slide with the left button down is what can abort the shell.
             check(activeIndex() === 0, `switched with the button down, active is ${activeIndex()}`);
             check(this._slides === 0, `played ${this._slides} slides with the button down`);
@@ -727,7 +733,7 @@ export default class DriverExtension extends Extension {
                 await this._drop();
                 await sleep(300);
                 check(a.get_workspace().index() === 1, `A on ${a.get_workspace().index()}`);
-                check(a.get_maximize_flags() === 0, 'A was left tiled');
+                check(maxFlags(a) === 0, 'A was left tiled');
             });
         });
 
@@ -772,7 +778,7 @@ export default class DriverExtension extends Extension {
                 await this._drop();
                 await sleep(300);
                 check(a.get_workspace().index() === 0, `A on ${a.get_workspace().index()}`);
-                check(a.get_maximize_flags() !== 0, 'A did not tile');
+                check(maxFlags(a) !== 0, 'A did not tile');
             });
         });
 
@@ -864,7 +870,7 @@ export default class DriverExtension extends Extension {
             await this._drop();
             await sleep(300);
             check(a.get_workspace().index() === 0, `A on ${a.get_workspace().index()}`);
-            check(a.get_maximize_flags() !== 0, 'A did not tile');
+            check(maxFlags(a) !== 0, 'A did not tile');
             check(rectOf(a).x >= W / 2 - 2, `A at x=${rectOf(a).x}`);
         });
 
@@ -882,7 +888,7 @@ export default class DriverExtension extends Extension {
             await this._drop();
             await sleep(300);
             check(a.get_workspace().index() === 1, `A on ${a.get_workspace().index()}`);
-            check(a.get_maximize_flags() === 0, 'A was left tiled');
+            check(maxFlags(a) === 0, 'A was left tiled');
             check(sameRect(rectOf(a), before), `rect ${JSON.stringify(rectOf(a))} vs ${JSON.stringify(before)}`);
         });
 
@@ -954,19 +960,19 @@ export default class DriverExtension extends Extension {
 
         await this._test('a maximized window comes back maximized', async () => {
             const a = this._find('A');
-            a.maximize();
+            setMax(a);
             await sleep(400);
-            check(a.is_maximized(), 'A did not maximize');
+            check(isMax(a), 'A did not maximize');
             await this._grabTitlebar(a, {offsetX: 400});
             await this._moveTo(800, 400);
             await sleep(120);
-            check(!a.is_maximized(), 'A did not shake loose');
+            check(!isMax(a), 'A did not shake loose');
             await this._moveTo(RIGHT, 300);
             await sleep(ARM_SETTLE);
             await this._drop();
             await sleep(300);
             check(a.get_workspace().index() === 1, `A on ${a.get_workspace().index()}`);
-            check(a.is_maximized(), 'A lost maximize');
+            check(isMax(a), 'A lost maximize');
         });
 
         await this._test('a grab that starts on the edge does not throw', async () => {
@@ -996,7 +1002,7 @@ export default class DriverExtension extends Extension {
             check(Main.wm._tilePreview?.visible, 'no tile preview');
             await this._drop();
             check(a.get_workspace().index() === 0, `A on ${a.get_workspace().index()}`);
-            check(a.get_maximize_flags() !== 0, 'A did not tile');
+            check(maxFlags(a) !== 0, 'A did not tile');
         });
 
         await this._test('static workspaces: last workspace has nothing to the right', async () => {
@@ -1226,6 +1232,55 @@ export default class DriverExtension extends Extension {
         }
     }
 
+    /**
+     * The same window activity as the tests, with Edge Toss off. A JS error here is the
+     * distro's GNOME build, not the extension.
+     */
+    async _controlRun(toss) {
+        await Main.extensionManager.disableExtension(toss.uuid);
+        await sleep(300);
+        const W = global.display.get_monitor_geometry(0).width;
+
+        await this._test('control: another move during a drag, with Edge Toss off', async () => {
+            await this._spreadWorkspaces(['A', 'B', 'C']);
+            this._find('D').change_workspace_by_index(1, true);
+            await sleep(150);
+            manager().get_workspace_by_index(1).activate(global.get_current_time());
+            await sleep(600);
+            const b = this._find('B');
+            b.activate(global.get_current_time());
+            await sleep(150);
+            await this._grabTitlebar(b);
+            await this._moveTo(W - 1, 300);
+            await sleep(450);
+            Main.wm.actionMoveWindow(b, manager().get_workspace_by_index(2));
+            await sleep(600);
+            await this._moveTo(800, 500);
+            await this._drop();
+        });
+
+        await this._test('control: closing and reopening a window, with Edge Toss off', async () => {
+            this._find('A').delete(global.get_current_time());
+            await sleep(400);
+            this._spawn('A');
+            await this._waitWindow('A');
+            // The dash redraws on a timer of about 20 seconds while the overview is closed.
+            await sleep(30000);
+        });
+
+        await this._test('control: ordinary window activity for a while, with Edge Toss off', async () => {
+            const a = this._find('A');
+            for (let i = 0; i < 12; i++) {
+                await this._reset();
+                await this._grabTitlebar(a);
+                await this._moveTo(W - 300, 400);
+                await this._drop();
+                a.change_workspace_by_index(1, true);
+                await sleep(1500);
+            }
+        });
+    }
+
     async _run() {
         // Staying put must never play a workspace slide, so count them.
         this._slides = 0;
@@ -1263,6 +1318,10 @@ export default class DriverExtension extends Extension {
                 win.activate(global.get_current_time());
                 await sleep(400);
                 await this._shot('20-prefs-area');
+                // Fonts move everything around on other distros, so these positions only
+                // hold on the development machine.
+                if (GLib.getenv('EDGE_TOSS_PREFS_BASIC'))
+                    return;
                 const settings = toss.stateObj.getSettings();
                 const r = rectOf(win);
                 const at = (x, y) => [r.x + x, r.y + y];
@@ -1354,6 +1413,12 @@ export default class DriverExtension extends Extension {
                 check(settings.get_boolean('right-enabled'), 'right edge stayed off');
             });
 
+            this._finish(null);
+            return;
+        }
+
+        if (SCENARIO === 'control') {
+            await this._controlRun(toss);
             this._finish(null);
             return;
         }

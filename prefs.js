@@ -8,6 +8,7 @@ import PangoCairo from 'gi://PangoCairo';
 import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 import {moveZone, zonePartAt} from './lib/logic.js';
+import {accentColor} from './prefs/accent.js';
 
 const SCREEN_ASPECT = 16 / 10;
 const STRIP_WIDTH = 30;
@@ -33,13 +34,13 @@ function writeZone(settings, side, zone) {
 }
 
 /**
- * A little screen with the two edges on it. Drag a handle to resize the area that
- * throws, or drag the area itself to slide it along the edge.
+ * A little screen with the two edges on it. Drag a handle to resize a zone, or drag the
+ * zone itself to slide it along the edge.
  */
 const ZoneEditor = GObject.registerClass(
 class EdgeTossZoneEditor extends Gtk.DrawingArea {
-    _init(settings) {
-        super._init({
+    constructor(settings) {
+        super({
             content_height: 280,
             hexpand: true,
             margin_top: 14,
@@ -57,7 +58,6 @@ class EdgeTossZoneEditor extends Gtk.DrawingArea {
         for (const key of ['left-enabled', 'right-enabled', 'left-zone-start', 'left-zone-end',
             'right-zone-start', 'right-zone-end'])
             settings.connect(`changed::${key}`, redraw);
-        Adw.StyleManager.get_default().connect('notify::accent-color', redraw);
         Adw.StyleManager.get_default().connect('notify::dark', redraw);
 
         const drag = new Gtk.GestureDrag();
@@ -149,7 +149,7 @@ class EdgeTossZoneEditor extends Gtk.DrawingArea {
 
     _draw(cr, width, height) {
         const fg = this.get_color();
-        const accent = Adw.StyleManager.get_default().get_accent_color_rgba();
+        const accent = accentColor();
         const neutral = alpha => cr.setSourceRGBA(fg.red, fg.green, fg.blue, alpha);
         const screen = this._screen(width, height);
 
@@ -220,11 +220,11 @@ class EdgeTossZoneEditor extends Gtk.DrawingArea {
         }
 
         if (y2 - y1 > 34)
-            this._text(cr, 'Throws', labelX, (y1 + y2) / 2, labelAlign, fg);
+            this._text(cr, 'Moves', labelX, (y1 + y2) / 2, labelAlign, fg);
         if (y1 - top > 34)
-            this._text(cr, 'Half-tiles', labelX, (top + y1) / 2, labelAlign, dim);
+            this._text(cr, 'Tiles', labelX, (top + y1) / 2, labelAlign, dim);
         if (top + trackHeight - y2 > 34)
-            this._text(cr, 'Half-tiles', labelX, (y2 + top + trackHeight) / 2, labelAlign, dim);
+            this._text(cr, 'Tiles', labelX, (y2 + top + trackHeight) / 2, labelAlign, dim);
     }
 });
 
@@ -288,16 +288,16 @@ function zoneSpinRow(settings, side, part, title) {
 function edgeRow(settings, side, title) {
     const row = new Adw.ExpanderRow({title, show_enable_switch: true, expanded: true});
     settings.bind(`${side}-enabled`, row, 'enable-expansion', Gio.SettingsBindFlags.DEFAULT);
-    row.add_row(zoneSpinRow(settings, side, 'start', 'Area starts at (% from the top)'));
-    row.add_row(zoneSpinRow(settings, side, 'end', 'Area ends at (% from the top)'));
+    row.add_row(zoneSpinRow(settings, side, 'start', 'Zone Top (%)'));
+    row.add_row(zoneSpinRow(settings, side, 'end', 'Zone Bottom (%)'));
     return row;
 }
 
 /** Runs the two holds at their real speed, since milliseconds are hard to imagine. */
 function timingPreviewRow(settings) {
     const row = new Adw.ActionRow({
-        title: 'Try the timing',
-        subtitle: 'Plays both holds at their real speed',
+        title: 'Preview Timing',
+        subtitle: 'Plays both delays at their real speed',
     });
 
     const box = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, spacing: 4, valign: Gtk.Align.CENTER, width_request: 150});
@@ -341,6 +341,8 @@ function timingPreviewRow(settings) {
 export default class EdgeTossPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
         const settings = this.getSettings();
+        // Keeps it alive for as long as the window is open.
+        window._settings = settings;
         window.set_default_size(640, 800);
         window.add(this._areaPage(settings));
         window.add(this._behaviourPage(settings));
@@ -348,39 +350,39 @@ export default class EdgeTossPreferences extends ExtensionPreferences {
     }
 
     _areaPage(settings) {
-        const page = new Adw.PreferencesPage({title: 'Area', icon_name: 'view-fullscreen-symbolic'});
+        const page = new Adw.PreferencesPage({title: 'Zones', icon_name: 'view-fullscreen-symbolic'});
 
         const editor = new Adw.PreferencesGroup({
-            title: 'Where it throws',
-            description: 'Drag the white grips to resize the area, or drag the area to slide it. The rest of the edge keeps GNOME’s half-tiling.',
+            title: 'Move Zones',
+            description: 'Drop a window in a zone to move it to another workspace. Drag the white handles or the zone itself to adjust it.',
         });
         const frame = new Gtk.Box({css_classes: ['card']});
         frame.append(new ZoneEditor(settings));
         editor.add(frame);
         page.add(editor);
 
-        const edges = new Adw.PreferencesGroup({title: 'Edges'});
-        const link = switchRow(settings, 'link-edges', 'Same area on both edges', null);
+        const edges = new Adw.PreferencesGroup({title: 'Screen Edges'});
+        const link = switchRow(settings, 'link-edges', 'Use the Same Zone on Both Edges', null);
         edges.add(link);
-        edges.add(edgeRow(settings, 'left', 'Left edge'));
-        const right = edgeRow(settings, 'right', 'Right edge');
+        edges.add(edgeRow(settings, 'left', 'Left Edge'));
+        const right = edgeRow(settings, 'right', 'Right Edge');
         edges.add(right);
         page.add(edges);
 
-        // Linking takes the left edge's area, so the two can't start out different.
+        // Linking takes the left edge's zone, so the two can't start out different.
         settings.connect('changed::link-edges', () => {
             if (settings.get_boolean('link-edges'))
                 writeZone(settings, 'left', readZone(settings, 'left'));
         });
 
-        const reach = new Adw.PreferencesGroup({title: 'Reach'});
-        reach.add(spinRow(settings, 'edge-depth', 'Distance from the edge',
-            'How close the pointer has to be, in pixels. GNOME half-tiles within 48, so anything less leaves a strip that half-tiles before you reach the edge.',
+        const reach = new Adw.PreferencesGroup({title: 'Activation'});
+        reach.add(spinRow(settings, 'edge-depth', 'Distance from Edge',
+            'How close to the screen edge the pointer must be, in pixels. With a small value, windows tile near the edge and move when pushed right up to it.',
             1, 150, 1));
         reach.add(comboRow(settings, 'monitors', 'Monitors',
-            'Edges shared between two monitors never throw', [
-                {value: 'all', label: 'All monitors'},
-                {value: 'primary', label: 'Primary only'},
+            'Edges between two monitors are never used, so windows can cross freely', [
+                {value: 'all', label: 'All Monitors'},
+                {value: 'primary', label: 'Primary Only'},
             ]));
         page.add(reach);
         return page;
@@ -389,30 +391,33 @@ export default class EdgeTossPreferences extends ExtensionPreferences {
     _behaviourPage(settings) {
         const page = new Adw.PreferencesPage({title: 'Behaviour', icon_name: 'preferences-system-symbolic'});
 
-        const drop = new Adw.PreferencesGroup({title: 'Dropping'});
-        drop.add(comboRow(settings, 'drop-action', 'A normal drop',
-            'The options below change this', [
-                {value: 'stay', label: 'Stay here'},
-                {value: 'follow', label: 'Go with it'},
+        const drop = new Adw.PreferencesGroup({title: 'After Moving a Window'});
+        drop.add(comboRow(settings, 'drop-action', 'When You Drop a Window',
+            'What happens to your view when a window moves', [
+                {value: 'stay', label: 'Stay on This Workspace'},
+                {value: 'follow', label: 'Go With the Window'},
             ]));
         page.add(drop);
 
-        const swap = new Adw.PreferencesGroup({title: 'Swapping it'});
-        swap.add(switchRow(settings, 'hold-to-follow', 'Hold on a workspace',
-            'The card in the picker fills up, and the drop swaps when it’s full'));
-        swap.add(comboRow(settings, 'follow-modifier', 'Hold a key',
-            'Shift isn’t offered because GNOME uses it for snapping during a drag. Releasing Alt can open the menu bar in some apps.', [
+        const swap = new Adw.PreferencesGroup({
+            title: 'Doing the Opposite',
+            description: 'Ways to choose the other option for a single move',
+        });
+        swap.add(switchRow(settings, 'hold-to-follow', 'Hold Over a Workspace',
+            'Keep the pointer on a workspace in the picker until it fills up'));
+        swap.add(comboRow(settings, 'follow-modifier', 'Hold a Key While Dropping',
+            'Ctrl is recommended, as releasing Alt opens the menu bar in some apps', [
                 {value: 'ctrl', label: 'Ctrl'},
                 {value: 'alt', label: 'Alt'},
                 {value: 'none', label: 'None'},
             ]));
-        swap.add(switchRow(settings, 'right-click-to-go', 'Right-click during the drag',
-            'Throws to the card under the pointer right away, and takes you there as soon as you let go'));
+        swap.add(switchRow(settings, 'right-click-to-go', 'Right-Click While Dragging',
+            'Moves the window right away and always takes you with it when you let go'));
         page.add(swap);
 
         const targets = new Adw.PreferencesGroup({title: 'Workspaces'});
-        targets.add(switchRow(settings, 'offer-new-workspace', 'Offer a new workspace',
-            'Adds a + card with dynamic workspaces. Without it, the empty last workspace isn’t a target.'));
+        targets.add(switchRow(settings, 'offer-new-workspace', 'Offer a New Workspace',
+            'Lets you move a window to a new, empty workspace when using dynamic workspaces'));
         page.add(targets);
         return page;
     }
@@ -421,32 +426,32 @@ export default class EdgeTossPreferences extends ExtensionPreferences {
         const page = new Adw.PreferencesPage({title: 'Timing & Look', icon_name: 'preferences-system-time-symbolic'});
 
         const timing = new Adw.PreferencesGroup({title: 'Timing'});
-        timing.add(spinRow(settings, 'hold-delay-ms', 'Open the picker after',
-            'Milliseconds at the edge. Dropping sooner sends to the next workspace.', 100, 1500, 50));
-        const follow = spinRow(settings, 'follow-delay-ms', 'Fill the card in',
-            'Milliseconds holding on one workspace in the picker', 200, 3000, 50);
+        timing.add(spinRow(settings, 'hold-delay-ms', 'Workspace Picker Delay',
+            'Time to hold at the edge before the picker opens, in milliseconds. Dropping sooner moves the window to the next workspace.', 100, 1500, 50));
+        const follow = spinRow(settings, 'follow-delay-ms', 'Hold Over Workspace Time',
+            'Time for a workspace in the picker to fill up, in milliseconds', 200, 3000, 50);
         settings.bind('hold-to-follow', follow, 'sensitive', Gio.SettingsBindFlags.GET);
         timing.add(follow);
         timing.add(timingPreviewRow(settings));
         page.add(timing);
 
-        const look = new Adw.PreferencesGroup({title: 'Look'});
-        look.add(spinRow(settings, 'card-width', 'Picker card width',
-            'Largest width, in pixels. Cards shrink to fit when there are many workspaces.', 120, 360, 8));
-        look.add(switchRow(settings, 'show-hint', 'Show the area while approaching',
-            'A thin bar along the edge'));
-        look.add(switchRow(settings, 'show-confirmation', 'Show where the window went',
-            'A brief label at the edge after a throw'));
-        look.add(switchRow(settings, 'animate-throw', 'Animate the throw',
-            'The window flies off the edge. Also off when GNOME’s animations are off.'));
+        const look = new Adw.PreferencesGroup({title: 'Appearance'});
+        look.add(spinRow(settings, 'card-width', 'Workspace Preview Size',
+            'Maximum width in pixels. Previews shrink to fit when there are many workspaces.', 120, 360, 8));
+        look.add(switchRow(settings, 'show-hint', 'Highlight Zones While Dragging',
+            'Shows a thin bar along the edge as a window gets close'));
+        look.add(switchRow(settings, 'show-confirmation', 'Show Destination',
+            'Briefly shows the workspace number after a window moves'));
+        look.add(switchRow(settings, 'animate-throw', 'Animate Moved Windows',
+            'The window slides off the edge of the screen'));
         page.add(look);
 
         const reset = new Adw.PreferencesGroup();
-        const resetRow = new Adw.ButtonRow({title: 'Reset all to defaults'});
+        const resetRow = new Adw.ActionRow({title: 'Reset All Settings', activatable: true});
         resetRow.connect('activated', () => {
             for (const key of settings.settings_schema.list_keys())
                 settings.reset(key);
-            window.add_toast(new Adw.Toast({title: 'Settings reset'}));
+            window.add_toast(new Adw.Toast({title: 'Settings reset to defaults'}));
         });
         reset.add(resetRow);
         page.add(reset);

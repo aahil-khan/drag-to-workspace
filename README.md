@@ -1,69 +1,79 @@
 # Edge Toss
 
-Throw a window onto another workspace by dragging it to the screen edge, without opening the overview. GNOME Shell 50.
+Move windows to other workspaces by dragging them to the edge of the screen, without opening the overview.
 
-| You do | What happens |
+## How it works
+
+| While dragging a window | What happens |
 | --- | --- |
-| Drag to the left or right edge and drop straight away | The window goes to the next workspace on that side. You stay here. |
-| Hold at the edge | A picker opens with every workspace on that side, nearest first. Move up or down and drop. You stay here. |
-| Hold on one workspace in the picker | The card fills up. When it's full it snaps to "Go with it", and dropping takes you there too. |
-| Hold Ctrl while dropping | Goes with the window straight away, at any stage. |
-| Right-click while still holding the window | Throws right away to the card under the pointer, or to the next workspace if the picker isn't open yet. The screen follows as soon as you let go, whatever the normal drop does. |
-| Drag back away from the edge, or press Escape | Nothing is thrown. |
+| Drop it at the left or right edge | It moves to the next workspace on that side. You stay where you are. |
+| Hold it at the edge | A picker opens with every workspace on that side. Move up or down and drop. |
+| Hold over a workspace in the picker | The preview fills up. Drop after that to go with the window. |
+| Hold Ctrl as you drop | Goes with the window straight away. |
+| Right-click | Moves the window right away, and takes you with it when you let go. |
+| Drag back away from the edge, or press Escape | Nothing moves. |
 
-The window arrives where it was before the drag, at the same size, and maximized if it was maximized.
+The window keeps its position and size on the new workspace, and stays maximized if it was maximized.
 
-Ctrl is used because GNOME treats Shift as a snap mode during a drag: it clears any pending tile and makes Mutter ignore the button release. Shift does nothing special in Edge Toss. The key can be changed to Alt or turned off.
+A window can't be moved while it's fullscreen or set to appear on all workspaces. Resizing a window into the edge does nothing.
+
+## Window tiling
+
+Dropping a window on a side of the screen normally tiles it to half the screen. Edge Toss only uses part of each edge, the top two thirds by default, and normal tiling keeps working everywhere else. A thin bar shows the zone as a window gets close.
+
+You can resize or move the zones in the settings, or use only one edge. Another way to share an edge is to lower **Distance from Edge**: windows then tile near the edge and move when pushed right up to it.
+
+## Multiple monitors
+
+Only the outer edges of your screens are used, so windows can still cross between monitors, and edges between monitors keep normal tiling. To move a window towards a side blocked by another monitor, drag it to that monitor's far edge. The window stays on its original monitor.
+
+If workspaces are set to the primary display only, windows on other displays are already on every workspace, so they can't be moved.
 
 ## Settings
 
-`gnome-extensions prefs edge-toss@aahil-khan.github.com`
-
-- **Area:** a drawing of the screen with the throwing area on each edge. Drag its grips to resize it or the area itself to slide it, or type exact percentages. Each edge can be turned off or set separately. Also sets how close to the edge the pointer has to be, and which monitors take part.
-- **Behaviour:** what a normal drop does, how to change it (holding on a card, a key, a right-click), and whether to offer new workspaces.
-- **Timing & Look:** how long to hold before the picker opens and before a card fills, with a button that plays both at real speed. Card size, the edge hint, the confirmation label, the throw animation, and reset.
-
-## Sharing the edge with half-tiling
-
-Dropping on the side edge used to half-tile, so the edge is split. By default the top two thirds throw and the rest half-tiles. A thin bar along the edge shows the throwing area as you approach. Change it in the Area settings.
-
-GNOME half-tiles within 48 pixels of the edge. Setting the distance below that gives another way to share: drop near the edge to half-tile, or push all the way to the edge to throw.
-
-Outside the throwing area, GNOME keeps the edge. So it does wherever there is nothing to throw to, for example on the last workspace with static workspaces, or for the only window on a workspace with nothing but a new workspace next to it.
-
-## Edge cases
-
-- **Several monitors:** only outer edges count, because the pointer has to be able to cross between monitors. Edges shared with another monitor still tile. To throw towards a side blocked by a monitor, drag across to that monitor's outer edge. The window goes back to its original monitor.
-- **Workspaces on the primary monitor only:** windows on other monitors are on every workspace already, so they can't be thrown.
-- **New workspaces:** with dynamic workspaces, each side offers a `+`. On the left it creates a workspace before the first one.
-- **Not thrown:** resizes, keyboard moves, windows on all workspaces, and fullscreen windows. A drag that starts with the pointer already at the edge has to leave the edge first.
-
-## Limits
-
-- Workspaces are assumed to run left to right, as they do by default.
-- Only tested on GNOME Shell 50.
-- Touchscreen drags are untested.
-
-## Install
+Open them from the Extensions app, or run:
 
 ```sh
-make install   # symlinks this repo into ~/.local/share/gnome-shell/extensions
+gnome-extensions prefs edge-toss@aahil-khan.github.com
 ```
 
-On Wayland the shell only finds new extensions at login, so log out and back in, then:
+- **Zones:** where on each edge windows move, how close the pointer has to be, and which monitors are used.
+- **Behaviour:** whether a drop keeps you on the current workspace, and the ways to do the opposite.
+- **Timing & Look:** the two hold delays, with a preview, plus preview size, the zone highlight, the destination label, and animation.
 
-```sh
-gnome-extensions enable edge-toss@aahil-khan.github.com
-```
+## Limitations
+
+- Workspaces are assumed to run left to right, the default since GNOME 40.
+- Touchscreen drags haven't been tested.
 
 ## Development
 
 ```sh
-make test   # drag logic, under node
-make e2e    # real drags in a sandboxed headless GNOME Shell
-make pack   # zip in dist/
+make test     # the drag logic, under node
+make e2e      # real drags in a sandboxed headless GNOME Shell, on your own version
+make install  # symlinks this checkout into your extensions folder
+make pack     # builds the zips for extensions.gnome.org into dist/
+make matrix   # tests each zip on the distros it targets, in containers with podman
 ```
 
-`make e2e` runs a throwaway `gnome-shell --headless` with its own home, dconf and session bus, so it doesn't touch the running desktop. A driver extension moves a virtual pointer over real GTK4 windows and checks the results through Mutter. It fails on any JS error in the shell log. Screenshots and logs land in `test/e2e/out/`.
+`make e2e` runs a throwaway `gnome-shell --headless` with its own home, dconf and session bus, so it doesn't touch your running desktop. A driver extension moves a virtual pointer over real GTK4 windows and checks the results through Mutter. Any JS error in the shell log fails the run. Screenshots and logs land in `test/e2e/out/`.
 
-`lib/logic.js` holds the decisions and has no GNOME imports. `extension.js` is the glue, and `lib/ui.js` draws. `extension.js` explains why the tiling conflict is handled by hiding the preview and undoing the tile, rather than by switching `edge-tiling`.
+### Layout
+
+- `lib/logic.js` makes the decisions and has no GNOME imports.
+- `extension.js` connects it to the shell, and `lib/ui.js` draws.
+- `prefs.js` is the settings window.
+
+### Versions
+
+There's no version checking at runtime. Each range of versions gets its own zip, built by `scripts/pack.sh`, with only the code that range runs:
+
+| Zip | Versions | Differs by |
+| --- | --- | --- |
+| `edge-toss-gnome-49-51.zip` | 49, 50, 51 | This checkout as it is |
+| `edge-toss-gnome-47-48.zip` | 47, 48 | `compat/pre49`, the older maximize API |
+| `edge-toss-gnome-46.zip` | 46 | Also `compat/46`, as there's no accent colour |
+
+## License
+
+GPL-2.0-or-later. See [LICENSE](LICENSE).

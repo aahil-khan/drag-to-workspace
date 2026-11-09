@@ -113,3 +113,7 @@
 .edge-toss-popup-button:active {
   background-color: rgba(255, 255, 255, 0.32);
 }
+
+.edge-toss-popup-label-only {
+  padding: 8px 14px;
+}

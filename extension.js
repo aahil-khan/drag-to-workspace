@@ -195,6 +195,9 @@ export default class EdgeTossExtension extends Extension {
             options: {
                 showHint: settings.get_boolean('show-hint'),
                 showConfirmation: settings.get_boolean('show-confirmation'),
+                popupDuration: settings.get_int('popup-duration-ms'),
+                popupButtons: settings.get_string('popup-buttons'),
+                popupPosition: settings.get_string('popup-position'),
                 animateThrow: settings.get_boolean('animate-throw'),
                 showAppIcons: settings.get_boolean('show-app-icons'),
                 workspaceNames: settings.get_boolean('show-workspace-names')
@@ -365,7 +368,7 @@ export default class EdgeTossExtension extends Extension {
 
         this._tick();
         const [, , mods] = global.get_pointer();
-        const y = this._dragPosition(drag)?.[1] ?? 0;
+        const [x, y] = this._dragPosition(drag) ?? [0, 0];
         // After Escape, Mutter has already put the window back, so there is nothing to throw.
         const modifierHeld = (mods & drag.modifierMask) !== 0;
         const goNow = drag.rightClickToGo && drag.rightClicked;
@@ -391,7 +394,7 @@ export default class EdgeTossExtension extends Extension {
             : this._snapshotWindow(win);
         this._tossLaterId = global.compositor.get_laters().add(Meta.LaterType.BEFORE_REDRAW, () => {
             this._tossLaterId = 0;
-            this._toss(win, drag, decision, {snapshot, side, monitor, y, switchesNow, allWindows});
+            this._toss(win, drag, decision, {snapshot, side, monitor, x, y, switchesNow, allWindows});
             return GLib.SOURCE_REMOVE;
         });
     }
@@ -417,7 +420,7 @@ export default class EdgeTossExtension extends Extension {
         return {content: actor.paint_to_content(null), rect: win.get_frame_rect()};
     }
 
-    _toss(win, drag, {target, follow}, {snapshot, side, monitor, y, switchesNow, allWindows}) {
+    _toss(win, drag, {target, follow}, {snapshot, side, monitor, x, y, switchesNow, allWindows}) {
         // The window may have closed since the drop.
         if (!win.get_compositor_private())
             return;
@@ -463,7 +466,11 @@ export default class EdgeTossExtension extends Extension {
                 target,
                 monitor,
                 y,
+                x,
                 count: moved.length,
+                buttons: drag.options.popupButtons,
+                duration: drag.options.popupDuration,
+                position: drag.options.popupPosition,
                 onUndo: () => this._undoMove(moved, origin),
                 onGo: () => this._switchOnceButtonsUp(win, workspace),
             });

@@ -326,6 +326,8 @@ export default class DriverExtension extends Extension {
     }
 
     async _singleMonitorTests(toss) {
+        // The popup after a move is off by default, and several tests click its buttons.
+        toss.stateObj.getSettings().set_boolean('show-confirmation', true);
         const W = global.display.get_monitor_geometry(0).width;
         const H = global.display.get_monitor_geometry(0).height;
         const RIGHT = W - 1;

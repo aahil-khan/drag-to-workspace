@@ -17,7 +17,7 @@ Move windows to other workspaces by dragging them to the edge of the screen, wit
 | Right-click | Moves the window right away, and takes you with it when you let go. |
 | Drag back away from the edge, or press Escape | Nothing moves. |
 
-After a move, a small popup says where the window went, with **Undo** and **Go** buttons.
+After a move, a small popup can say where the window went, with **Undo** and **Go** buttons. It's off by default: turn it on under **After a Move** in Look & Feel, where you can also choose how long it stays, which buttons it has, and where it appears.
 
 The window keeps its position and size on the new workspace, and stays maximized if it was maximized.
 
@@ -49,7 +49,7 @@ gnome-extensions prefs edge-toss@aahil-khan.github.com
 
 - **Zones:** where on each edge windows move, how close the pointer has to be, which monitors are used, and the hold-only edges.
 - **Behaviour:** whether a drop keeps you on the current workspace, the ways to do the opposite, number keys, and the key for moving all of an app's windows.
-- **Look & Feel:** the two hold delays, with a preview, plus preview size, workspace names, app icons, the zone highlight, the Undo and Go popup, and animation.
+- **Look & Feel:** the two hold delays, with a preview, plus preview size, workspace names, app icons, the zone highlight, animation, and the popup after a move.
 - **Apps:** apps whose windows are never moved.
 
 ## Limitations

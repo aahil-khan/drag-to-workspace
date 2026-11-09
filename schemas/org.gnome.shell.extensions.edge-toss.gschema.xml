@@ -124,8 +124,32 @@
       <summary>Highlight zones while dragging a window near them</summary>
     </key>
     <key name="show-confirmation" type="b">
-      <default>true</default>
+      <default>false</default>
       <summary>Briefly show the destination workspace after a move, with Undo and Go buttons</summary>
+    </key>
+    <key name="popup-duration-ms" type="i">
+      <range min="1000" max="15000"/>
+      <default>4000</default>
+      <summary>How long the popup after a move stays up, in milliseconds</summary>
+    </key>
+    <key name="popup-buttons" type="s">
+      <choices>
+        <choice value="both"/>
+        <choice value="undo"/>
+        <choice value="go"/>
+        <choice value="none"/>
+      </choices>
+      <default>"both"</default>
+      <summary>Which buttons the popup after a move has</summary>
+    </key>
+    <key name="popup-position" type="s">
+      <choices>
+        <choice value="edge"/>
+        <choice value="pointer"/>
+        <choice value="top"/>
+      </choices>
+      <default>"edge"</default>
+      <summary>Where the popup after a move appears</summary>
     </key>
     <key name="show-workspace-names" type="b">
       <default>true</default>

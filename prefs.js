@@ -216,11 +216,37 @@ export default class EdgeTossPreferences extends ExtensionPreferences {
             _('Shows which apps are on each workspace')));
         look.add(switchRow(settings, 'show-hint', _('Highlight Zones While Dragging'),
             _('Shows a thin bar along the edge as a window gets close')));
-        look.add(switchRow(settings, 'show-confirmation', _('Show Undo and Go Buttons'),
-            _('Briefly shows where a window went, with buttons to undo the move or go there')));
         look.add(switchRow(settings, 'animate-throw', _('Animate Moved Windows'),
             _('The window slides off the edge of the screen')));
         page.add(look);
+
+        const popup = new Adw.PreferencesGroup({
+            title: _('After a Move'),
+            description: _('A small popup that says where a window went'),
+        });
+        popup.add(switchRow(settings, 'show-confirmation', _('Show a Popup'),
+            _('Not shown when you go with the window')));
+        const popupRows = [
+            spinRow(settings, 'popup-duration-ms', _('How Long It Stays'),
+                _('In milliseconds. It stays longer while the pointer is on it.'), 1000, 15000, 500),
+            comboRow(settings, 'popup-buttons', _('Buttons'),
+                _('Undo puts the window back, and Go takes you to it'), [
+                    {value: 'both', label: _('Undo and Go')},
+                    {value: 'undo', label: _('Undo Only')},
+                    {value: 'go', label: _('Go Only')},
+                    {value: 'none', label: _('None')},
+                ]),
+            comboRow(settings, 'popup-position', _('Where It Appears'), null, [
+                {value: 'edge', label: _('At the Edge')},
+                {value: 'pointer', label: _('Near the Pointer')},
+                {value: 'top', label: _('Top of the Screen')},
+            ]),
+        ];
+        for (const row of popupRows) {
+            settings.bind('show-confirmation', row, 'sensitive', Gio.SettingsBindFlags.GET);
+            popup.add(row);
+        }
+        page.add(popup);
 
         const reset = new Adw.PreferencesGroup();
         const resetRow = new Adw.ActionRow({title: _('Reset All Settings'), activatable: true});

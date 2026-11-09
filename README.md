@@ -1,8 +1,16 @@
-# Edge Toss
+<h1 align="center">Edge Toss</h1>
 
-Move windows to other workspaces by dragging them to the edge of the screen, without opening the overview.
+<p align="center">
+  <img src="https://img.shields.io/badge/GNOME-46--51-4A86CF?logo=gnome&logoColor=white" alt="GNOME 46 to 51">
+  <a href="https://github.com/aahil-khan/edge-toss/releases/latest"><img src="https://img.shields.io/github/v/release/aahil-khan/edge-toss" alt="Latest release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/aahil-khan/edge-toss" alt="License"></a>
+</p>
 
-## How it works
+<p align="center">Move windows to other workspaces by dragging them to the edge of the screen, without opening the overview.</p>
+
+<!-- Demo video and screenshots go here. -->
+
+## Features
 
 | While dragging a window | What happens |
 | --- | --- |
@@ -24,6 +32,44 @@ The window keeps its position and size on the new workspace, and stays maximized
 A window can't be moved while it's fullscreen or set to appear on all workspaces, or if its app is on your excluded list. Resizing a window into the edge does nothing.
 
 It works with touchscreens too, using the same gestures with your finger. The keys and right-click need a keyboard and mouse.
+
+## Supported GNOME versions
+
+| GNOME | Download |
+| --- | --- |
+| 49, 50, 51 | `edge-toss-gnome-49-51.zip` |
+| 47, 48 | `edge-toss-gnome-47-48.zip` |
+| 46 | `edge-toss-gnome-46.zip` |
+
+Check yours with `gnome-shell --version`. Each version was tested on real distro builds, including Ubuntu 24.04 and 26.04, Debian 13, Fedora 41 to 45, and AlmaLinux 10.
+
+## Installation
+
+### From a release
+
+1. Download the zip for your GNOME version from the [latest release](https://github.com/aahil-khan/edge-toss/releases/latest).
+2. Install it:
+
+   ```sh
+   gnome-extensions install --force edge-toss-gnome-49-51.zip
+   ```
+
+3. Log out and back in, as GNOME only finds new extensions at login.
+4. Turn it on:
+
+   ```sh
+   gnome-extensions enable edge-toss@aahil-khan.github.com
+   ```
+
+### From source
+
+```sh
+git clone https://github.com/aahil-khan/edge-toss.git
+cd edge-toss
+make install
+```
+
+This links the checkout into your extensions folder for GNOME 49 or newer. On older versions, install the zip that `make pack` builds into `dist/` instead. Then log out, log back in, and enable it as above.
 
 ## Window tiling
 
@@ -49,12 +95,17 @@ gnome-extensions prefs edge-toss@aahil-khan.github.com
 
 - **Zones:** where on each edge windows move, how close the pointer has to be, which monitors are used, and the hold-only edges.
 - **Behaviour:** whether a drop keeps you on the current workspace, the ways to do the opposite, number keys, and the key for moving all of an app's windows.
-- **Look & Feel:** the two hold delays, with a preview, plus preview size, workspace names, app icons, the zone highlight, animation, and the popup after a move.
+- **Look & Feel:** how long to hold before the picker opens, how long a workspace takes to fill and how long it waits before starting, with a preview of all three, plus preview size, workspace names, app icons, the zone highlight, animation, and the popup after a move.
 - **Apps:** apps whose windows are never moved.
 
 ## Limitations
 
-With vertical workspace layouts, the left edge moves windows up and the right edge moves them down. Grids of workspaces are treated as one long row.
+- With vertical workspace layouts, the left edge moves windows up and the right edge moves them down.
+- Grids of workspaces are treated as one long row.
+
+## Translations
+
+Translations are welcome. Start from `po/edge-toss.pot`, save it as `po/<language>.po`, and open a pull request.
 
 ## Development
 
@@ -76,9 +127,7 @@ make pot      # regenerates the translation template, po/edge-toss.pot
 - `lib/ui.js` draws during a drag, with `lib/workspaceCard.js` for each workspace and `lib/movedPopup.js` for the popup afterwards.
 - `prefs.js` is the settings window, and the files in `prefs/` are its parts.
 
-### Translations
-
-Translations go in `po/`, starting from `po/edge-toss.pot`, and `make pack` compiles any it finds into the zips.
+`make pack` compiles any translations in `po/` into the zips.
 
 ### Versions
 

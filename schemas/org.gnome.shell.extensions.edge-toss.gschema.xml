@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.edge-toss" path="/org/gnome/shell/extensions/edge-toss/">
+    <key name="tile-zone" type="s">
+      <choices>
+        <choice value="bottom"/>
+        <choice value="top"/>
+        <choice value="none"/>
+      </choices>
+      <default>"bottom"</default>
+      <summary>Part of the side edge left to GNOME's half-tiling</summary>
+    </key>
+    <key name="tile-zone-size" type="i">
+      <range min="10" max="60"/>
+      <default>33</default>
+      <summary>Height of the tiling part of the edge, in percent</summary>
+    </key>
+    <key name="hold-delay-ms" type="i">
+      <range min="100" max="1500"/>
+      <default>350</default>
+      <summary>How long to hold at the edge before the picker opens</summary>
+    </key>
+    <key name="follow-delay-ms" type="i">
+      <range min="200" max="3000"/>
+      <default>1200</default>
+      <summary>How long to hold on a workspace in the picker to switch between sending and going with the window</summary>
+    </key>
+    <key name="drop-action" type="s">
+      <choices>
+        <choice value="stay"/>
+        <choice value="follow"/>
+      </choices>
+      <default>"stay"</default>
+      <summary>What a normal drop does: leave you here, or take you with the window</summary>
+    </key>
+  </schema>
+</schemalist>

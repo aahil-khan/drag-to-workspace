@@ -1,0 +1,6 @@
+{
+  "uuid": "edge-toss-driver@test",
+  "name": "Edge Toss test driver",
+  "description": "Runs real drags against Edge Toss inside a sandboxed headless shell.",
+  "shell-version": ["50"]
+}

@@ -1,0 +1,60 @@
+.edge-toss-hint {
+  background-color: -st-accent-color;
+  border-radius: 3px;
+}
+
+.edge-toss-tab {
+  background-color: rgba(30, 30, 34, 0.94);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  padding: 10px 16px 13px;
+  font-size: 15pt;
+  font-weight: bold;
+  font-feature-settings: "tnum";
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+}
+
+.edge-toss-progress {
+  background-color: -st-accent-color;
+  border-radius: 2px;
+}
+
+.edge-toss-card {
+  background-color: #1e1e22;
+  border-radius: 10px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
+}
+
+.edge-toss-card-frame {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
+}
+
+.edge-toss-card-frame:selected {
+  border: 3px solid -st-accent-color;
+}
+
+.edge-toss-badge {
+  background-color: rgba(20, 20, 24, 0.86);
+  color: #ffffff;
+  border-radius: 7px;
+  padding: 2px 8px;
+  font-size: 10.5pt;
+  font-weight: bold;
+  font-feature-settings: "tnum";
+}
+
+.edge-toss-badge-new {
+  background-color: -st-accent-color;
+  color: -st-accent-fg-color;
+}
+
+.edge-toss-caption {
+  background-color: rgba(20, 20, 24, 0.86);
+  color: #ffffff;
+  border-radius: 7px;
+  padding: 2px 9px;
+  font-size: 10pt;
+  font-weight: bold;
+}

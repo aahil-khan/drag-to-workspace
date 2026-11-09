@@ -1,0 +1,8 @@
+{
+  "uuid": "edge-toss@aahil-khan.github.com",
+  "name": "Edge Toss",
+  "description": "Drag a window to the screen edge to throw it onto another workspace. Drop straight away to send it next door, or hold to pick any workspace on that side.",
+  "shell-version": ["50"],
+  "version": 1,
+  "settings-schema": "org.gnome.shell.extensions.edge-toss"
+}

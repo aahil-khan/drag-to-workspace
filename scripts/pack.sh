@@ -24,7 +24,9 @@ build() {
         "$src/metadata.json" "$versions"
 
     if [ "$name" = 46 ]; then
-        sed -i 's/-st-accent-color/#3584e4/g; s/-st-accent-fg-color/#ffffff/g' "$src/stylesheet.css"
+        sed -i -E 's/st-transparentize\(-st-accent-color, 0\.35\)/rgba(53, 132, 228, 0.65)/;
+            s/st-transparentize\(-st-accent-color, 0\.15\)/rgba(53, 132, 228, 0.85)/;
+            s/-st-accent-color/#3584e4/g; s/-st-accent-fg-color/#ffffff/g' "$src/stylesheet.css"
     fi
 
     (cd "$src" && gnome-extensions pack --force --out-dir="$ROOT/dist/$name" \

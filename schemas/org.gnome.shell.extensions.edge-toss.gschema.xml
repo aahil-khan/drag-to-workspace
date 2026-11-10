@@ -97,6 +97,22 @@
       <default>"alt"</default>
       <summary>Key that moves all of an app's windows on the workspace while held</summary>
     </key>
+    <key name="picker-gesture" type="s">
+      <choices>
+        <choice value="split"/>
+        <choice value="hold"/>
+        <choice value="off"/>
+      </choices>
+      <default>"split"</default>
+      <summary>How to do the opposite of the usual drop in the picker: drop on the outer part of a workspace, or hold over it</summary>
+    </key>
+    <key name="split-percent" type="i">
+      <range min="20" max="80"/>
+      <default>50</default>
+      <summary>How much of each workspace in the picker is the outer part, in percent</summary>
+    </key>
+    <!-- Unused since picker-gesture replaced it. It stays because a shell still running an
+         older version reads it, and a missing key would abort that shell. -->
     <key name="hold-to-follow" type="b">
       <default>true</default>
       <summary>Holding over a workspace in the picker does the opposite of the usual drop</summary>

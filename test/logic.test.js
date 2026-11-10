@@ -13,7 +13,9 @@ const mon = (x, y, width, height, panel = 32) => ({
 const single = [mon(0, 0, 1600, 1000)];
 const BAND = 48;
 
+// Most tests here are about the hold gesture. The split gesture has its own below.
 const session = (opts = {}) => new DragSession({
+    pickerGesture: 'hold',
     getTargets: () => [{index: 1, isNew: false}, {index: 2, isNew: false}, {index: 3, isNew: true}],
     band: BAND,
     aspect: 1.6,
@@ -340,8 +342,8 @@ test('going with the window loads up steadily after a short pause', () => {
     assert.equal(s.isFlipped(), true);
 });
 
-test('hold-to-follow can be turned off', () => {
-    const s = armedAt(session({holdToFollow: false}));
+test('the picker gesture can be turned off', () => {
+    const s = armedAt(session({pickerGesture: 'off'}));
     s.update(1599, 300, 360, single);
     s.update(1599, 300, 9000, single);
     assert.equal(s.followProgress, 0);
@@ -588,4 +590,62 @@ test('a chosen workspace that goes away is forgotten', () => {
     s.invalidate();
     s.update(800, 500, 10, single);
     assert.equal(s.keyTarget, null);
+});
+
+test('split: the outer part of a card goes with the window, the inner part sends', () => {
+    const s = armedAt(session({pickerGesture: 'split'}));
+    s.update(1599, 300, 360, single);
+    assert.equal(s.phase, Phase.PICKER);
+    assert.equal(s.inOuterPart, true);
+    assert.equal(s.decide().follow, true);
+
+    const cardInner = 1600 - 6 - s.layout.cardWidth;
+    s.update(cardInner + 10, 300, 400, single);
+    assert.equal(s.inOuterPart, false);
+    assert.equal(s.decide().follow, false);
+});
+
+test('split: no timer, however long the pointer stays', () => {
+    const s = armedAt(session({pickerGesture: 'split'}));
+    s.update(1599, 300, 360, single);
+    s.update(1420, 300, 400, single);
+    s.update(1420, 300, 9000, single);
+    assert.equal(s.followProgress, 0);
+    assert.equal(s.decide().follow, false);
+});
+
+test('split: the size of the outer part is configurable', () => {
+    const s = armedAt(session({pickerGesture: 'split', splitPercent: 20}));
+    s.update(1599, 300, 360, single);
+    const width = s.layout.cardWidth;
+    s.update(1600 - 1 - 6 - width * 0.15, 300, 400, single);
+    assert.equal(s.inOuterPart, true);
+    s.update(1600 - 1 - 6 - width * 0.3, 300, 410, single);
+    assert.equal(s.inOuterPart, false);
+});
+
+test('split: works on the left edge, the top strip, and with drop-action follow', () => {
+    const left = session({pickerGesture: 'split'});
+    left.update(800, 300, 0, single);
+    left.update(0, 300, 10, single);
+    left.update(0, 300, 400, single);
+    assert.equal(left.phase, Phase.PICKER);
+    assert.equal(left.inOuterPart, true);
+    left.update(6 + left.layout.cardWidth - 5, 300, 420, single);
+    assert.equal(left.inOuterPart, false);
+
+    const top = session({pickerGesture: 'split', topEdge: true});
+    top.update(800, 300, 0, single);
+    top.update(800, 10, 10, single);
+    top.update(800, 10, 720, single);
+    const card = top.layout.rects[0];
+    top.update(card.x + 20, 10, 800, single);
+    assert.equal(top.inOuterPart, true);
+    top.update(card.x + 20, card.y + card.height - 5, 820, single);
+    assert.equal(top.inOuterPart, false);
+    assert.equal(top.decide().follow, false);
+
+    const follow = armedAt(session({pickerGesture: 'split', dropAction: 'follow'}));
+    follow.update(1599, 300, 360, single);
+    assert.equal(follow.decide().follow, false);
 });

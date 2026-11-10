@@ -328,6 +328,9 @@ export default class DriverExtension extends Extension {
     async _singleMonitorTests(toss) {
         // The popup after a move is off by default, and several tests click its buttons.
         toss.stateObj.getSettings().set_boolean('show-confirmation', true);
+        // Most tests drop at the edge expecting to stay, which with the split gesture would
+        // go with the window. The split has its own tests.
+        toss.stateObj.getSettings().set_string('picker-gesture', 'hold');
         const W = global.display.get_monitor_geometry(0).width;
         const H = global.display.get_monitor_geometry(0).height;
         const RIGHT = W - 1;
@@ -1169,8 +1172,54 @@ export default class DriverExtension extends Extension {
             }
         });
 
-        await this._test('hold-to-follow off: a long hold still just sends', async () => {
-            await this._withSettings(toss, {'hold-to-follow': false, 'follow-delay-ms': 400}, async () => {
+        await this._test('split: at the edge the picker goes with the window, further in it sends', async () => {
+            await this._withSettings(toss, {'picker-gesture': 'split'}, async () => {
+                await this._spreadWorkspaces(['A', 'B', 'C']);
+                manager().get_workspace_by_index(0).activate(global.get_current_time());
+                await sleep(500);
+                const d = this._find('D');
+                d.activate(global.get_current_time());
+                await sleep(150);
+                const card = () => toss.stateObj._overlay._cards[session().selected];
+                await this._grabTitlebar(d);
+                await this._moveTo(RIGHT, 300);
+                await sleep(450);
+                check(session().phase === 'picker', `phase was ${session().phase}`);
+                check(session().inOuterPart, 'the pointer at the edge is not on the outer part');
+                check(card()._caption.text === 'Go with it', `caption ${card()._caption.text}`);
+                await this._shot('36-split-outer');
+
+                const inner = RIGHT - 6 - session().layout.cardWidth + 20;
+                await this._moveTo(inner, 300);
+                await sleep(80);
+                check(!session().inOuterPart, 'still on the outer part');
+                check(card()._caption.text === 'Send here', `caption ${card()._caption.text}`);
+                await this._shot('37-split-inner');
+                await sleep(2000);
+                check(!session().willFollow(false), 'a timer swapped it');
+                await this._drop();
+                await sleep(400);
+                check(d.get_workspace().index() === 1, `D on ${d.get_workspace().index()}`);
+                check(activeIndex() === 0, `active is ${activeIndex()}`);
+            });
+        });
+
+        await this._test('split: dropping on the outer part goes with the window', async () => {
+            await this._withSettings(toss, {'picker-gesture': 'split'}, async () => {
+                const a = this._find('A');
+                await this._grabTitlebar(a);
+                await this._moveTo(RIGHT, 300);
+                await sleep(450);
+                check(session().inOuterPart, 'not on the outer part');
+                await this._drop();
+                await sleep(600);
+                check(a.get_workspace().index() === 1, `A on ${a.get_workspace().index()}`);
+                check(activeIndex() === 1, `active is ${activeIndex()}`);
+            });
+        });
+
+        await this._test('picker gesture off: a long hold still just sends', async () => {
+            await this._withSettings(toss, {'picker-gesture': 'off', 'follow-delay-ms': 400}, async () => {
                 const a = this._find('A');
                 await this._grabTitlebar(a);
                 await this._moveTo(RIGHT, 300);
@@ -1604,6 +1653,7 @@ export default class DriverExtension extends Extension {
     }
 
     async _dualMonitorTests(toss) {
+        toss.stateObj.getSettings().set_string('picker-gesture', 'hold');
         const session = () => toss.stateObj._drag?.session;
         const g0 = global.display.get_monitor_geometry(0);
         const g1 = global.display.get_monitor_geometry(1);

@@ -117,3 +117,11 @@
 .edge-toss-popup-label-only {
   padding: 8px 14px;
 }
+
+.edge-toss-outer-part {
+  background-color: st-transparentize(-st-accent-color, 0.75);
+}
+
+.edge-toss-outer-part:checked {
+  background-color: st-transparentize(-st-accent-color, 0.2);
+}

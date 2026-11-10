@@ -40,6 +40,16 @@ function edgeRow(settings, side, title) {
     return row;
 }
 
+/** Greys out rows that only matter with one picker gesture. */
+function whileGesture(settings, gesture, rows) {
+    const sync = () => {
+        const active = settings.get_string('picker-gesture') === gesture;
+        rows.forEach(row => (row.sensitive = active));
+    };
+    sync();
+    settings.connect('changed::picker-gesture', sync);
+}
+
 /** Runs the two holds at their real speed, since milliseconds are hard to imagine. */
 function timingPreviewRow(settings) {
     const row = new Adw.ActionRow({
@@ -160,8 +170,16 @@ export default class EdgeTossPreferences extends ExtensionPreferences {
             title: _('Doing the Opposite'),
             description: _('Ways to choose the other option for a single move'),
         });
-        swap.add(switchRow(settings, 'hold-to-follow', _('Hold Over a Workspace'),
-            _('Keep the pointer on a workspace in the picker until it fills up')));
+        swap.add(comboRow(settings, 'picker-gesture', _('In the Workspace Picker'),
+            _('Dropping on the outer part of a workspace, next to the screen edge, or holding over it until it fills up'), [
+                {value: 'split', label: _('Outer Part')},
+                {value: 'hold', label: _('Hold')},
+                {value: 'off', label: _('Neither')},
+            ]));
+        const split = spinRow(settings, 'split-percent', _('Size of the Outer Part'),
+            _('Percent of each workspace preview'), 20, 80, 5);
+        whileGesture(settings, 'split', [split]);
+        swap.add(split);
         swap.add(comboRow(settings, 'follow-modifier', _('Hold a Key While Dropping'),
             _('Ctrl is recommended, as releasing Alt opens the menu bar in some apps'), [
                 {value: 'ctrl', label: _('Ctrl')},
@@ -198,12 +216,11 @@ export default class EdgeTossPreferences extends ExtensionPreferences {
             _('Time to hold at the edge before the picker opens, in milliseconds. Dropping sooner moves the window to the next workspace.'), 100, 1500, 50));
         const follow = spinRow(settings, 'follow-delay-ms', _('Hold Over Workspace Time'),
             _('Time for a workspace in the picker to fill up, in milliseconds'), 200, 3000, 50);
-        settings.bind('hold-to-follow', follow, 'sensitive', Gio.SettingsBindFlags.GET);
         timing.add(follow);
         const followStart = spinRow(settings, 'follow-start-delay-ms', _('Wait Before Filling'),
             _('Time over a workspace before it starts to fill, in milliseconds, so that moving past workspaces doesn\u2019t start it'), 0, 1000, 25);
-        settings.bind('hold-to-follow', followStart, 'sensitive', Gio.SettingsBindFlags.GET);
         timing.add(followStart);
+        whileGesture(settings, 'hold', [follow, followStart]);
         timing.add(timingPreviewRow(settings));
         page.add(timing);
 

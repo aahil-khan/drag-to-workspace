@@ -18,7 +18,7 @@
 | Hold it at the edge | A picker opens with every workspace on that side. Move up or down and drop. |
 | Hold it at the top edge | A picker opens with every workspace, on both sides. Move sideways and drop. |
 | Hold it at an edge between two monitors | The picker opens there, without crossing to the other monitor. |
-| Hold over a workspace in the picker | The preview fills up. Drop after that to go with the window. |
+| Drop on the outer half of a workspace in the picker, next to the screen edge | Goes with the window. The inner half just sends it. |
 | Press 1 to 9 | Chooses that workspace, then drop anywhere. Press it again to cancel. |
 | Hold Ctrl as you drop | Goes with the window straight away. |
 | Hold Alt as you drop | Moves all of that app's windows on this workspace too. |
@@ -94,8 +94,8 @@ gnome-extensions prefs edge-toss@aahil-khan.github.com
 ```
 
 - **Zones:** where on each edge windows move, how close the pointer has to be, which monitors are used, and the hold-only edges.
-- **Behaviour:** whether a drop keeps you on the current workspace, the ways to do the opposite, number keys, and the key for moving all of an app's windows.
-- **Look & Feel:** how long to hold before the picker opens, how long a workspace takes to fill and how long it waits before starting, with a preview of all three, plus preview size, workspace names, app icons, the zone highlight, animation, and the popup after a move.
+- **Behaviour:** whether a drop keeps you on the current workspace, the ways to do the opposite, including the size of the outer part or holding over a workspace instead, number keys, and the key for moving all of an app's windows.
+- **Look & Feel:** how long to hold before the picker opens, the timings for holding over a workspace, plus preview size, workspace names, app icons, the zone highlight, animation, and the popup after a move.
 - **Apps:** apps whose windows are never moved.
 
 ## Limitations

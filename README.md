@@ -8,7 +8,7 @@
 
 <p align="center">Move windows to other workspaces by dragging them to the edge of the screen, without opening the overview.</p>
 
-<!-- Demo video and screenshots go here. -->
+<p align="center"><img src="docs/demo.gif" alt="Dragging windows to the screen edge to move them between workspaces" width="800"></p>
 
 ## Features
 

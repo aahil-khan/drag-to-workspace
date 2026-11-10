@@ -171,15 +171,21 @@ export default class EdgeTossPreferences extends ExtensionPreferences {
             description: _('Ways to choose the other option for a single move'),
         });
         swap.add(comboRow(settings, 'picker-gesture', _('In the Workspace Picker'),
-            _('Dropping on the outer part of a workspace, next to the screen edge, or holding over it until it fills up'), [
-                {value: 'split', label: _('Outer Part')},
+            _('Each workspace is split in two, with one part doing the opposite, or you hold over a workspace until it fills up'), [
+                {value: 'split', label: _('Split')},
                 {value: 'hold', label: _('Hold')},
                 {value: 'off', label: _('Neither')},
             ]));
-        const split = spinRow(settings, 'split-percent', _('Size of the Outer Part'),
+        const splitSide = comboRow(settings, 'split-side', _('Part That Does the Opposite'),
+            _('The inner part is away from the screen edge, and the outer part is next to it'), [
+                {value: 'inner', label: _('Inner')},
+                {value: 'outer', label: _('Outer')},
+            ]);
+        const splitSize = spinRow(settings, 'split-percent', _('Size of That Part'),
             _('Percent of each workspace preview'), 20, 80, 5);
-        whileGesture(settings, 'split', [split]);
-        swap.add(split);
+        whileGesture(settings, 'split', [splitSide, splitSize]);
+        swap.add(splitSide);
+        swap.add(splitSize);
         swap.add(comboRow(settings, 'follow-modifier', _('Hold a Key While Dropping'),
             _('Ctrl is recommended, as releasing Alt opens the menu bar in some apps'), [
                 {value: 'ctrl', label: _('Ctrl')},

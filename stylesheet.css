@@ -118,10 +118,24 @@
   padding: 8px 14px;
 }
 
-.edge-toss-outer-part {
-  background-color: st-transparentize(-st-accent-color, 0.75);
+
+.edge-toss-part {
+  background-color: rgba(20, 20, 24, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.25);
 }
 
-.edge-toss-outer-part:checked {
-  background-color: st-transparentize(-st-accent-color, 0.2);
+.edge-toss-part:checked {
+  background-color: st-transparentize(-st-accent-color, 0.45);
+  border: 2px solid #ffffff;
+}
+
+.edge-toss-part-label {
+  color: rgba(255, 255, 255, 0.8);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  font-size: 10pt;
+  font-weight: bold;
+}
+
+.edge-toss-part:checked .edge-toss-part-label {
+  color: #ffffff;
 }

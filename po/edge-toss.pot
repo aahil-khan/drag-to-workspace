@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: edge-toss\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-10 12:28+0530\n"
+"POT-Creation-Date: 2026-11-10 12:36+0530\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -161,12 +161,12 @@ msgstr ""
 
 #: prefs.js:174
 msgid ""
-"Dropping on the outer part of a workspace, next to the screen edge, or "
-"holding over it until it fills up"
+"Each workspace is split in two, with one part doing the opposite, or you "
+"hold over a workspace until it fills up"
 msgstr ""
 
 #: prefs.js:175
-msgid "Outer Part"
+msgid "Split"
 msgstr ""
 
 #: prefs.js:176
@@ -178,227 +178,244 @@ msgid "Neither"
 msgstr ""
 
 #: prefs.js:179
-msgid "Size of the Outer Part"
+msgid "Part That Does the Opposite"
 msgstr ""
 
 #: prefs.js:180
-msgid "Percent of each workspace preview"
+msgid ""
+"The inner part is away from the screen edge, and the outer part is next to it"
 msgstr ""
 
-#: prefs.js:183
-msgid "Hold a Key While Dropping"
+#: prefs.js:181
+msgid "Inner"
+msgstr ""
+
+#: prefs.js:182
+msgid "Outer"
 msgstr ""
 
 #: prefs.js:184
-msgid "Ctrl is recommended, as releasing Alt opens the menu bar in some apps"
+msgid "Size of That Part"
 msgstr ""
 
-#: prefs.js:185 prefs.js:199
-msgid "Ctrl"
-msgstr ""
-
-#: prefs.js:186 prefs.js:198
-msgid "Alt"
-msgstr ""
-
-#: prefs.js:187 prefs.js:200 prefs.js:254
-msgid "None"
+#: prefs.js:185
+msgid "Percent of each workspace preview"
 msgstr ""
 
 #: prefs.js:189
-msgid "Right-Click While Dragging"
+msgid "Hold a Key While Dropping"
 msgstr ""
 
 #: prefs.js:190
+msgid "Ctrl is recommended, as releasing Alt opens the menu bar in some apps"
+msgstr ""
+
+#: prefs.js:191 prefs.js:205
+msgid "Ctrl"
+msgstr ""
+
+#: prefs.js:192 prefs.js:204
+msgid "Alt"
+msgstr ""
+
+#: prefs.js:193 prefs.js:206 prefs.js:260
+msgid "None"
+msgstr ""
+
+#: prefs.js:195
+msgid "Right-Click While Dragging"
+msgstr ""
+
+#: prefs.js:196
 msgid ""
 "Moves the window right away and always takes you with it when you let go"
 msgstr ""
 
-#: prefs.js:193
+#: prefs.js:199
 msgid "While Dragging"
 msgstr ""
 
-#: prefs.js:194
+#: prefs.js:200
 msgid "Number Keys Choose a Workspace"
 msgstr ""
 
-#: prefs.js:195
+#: prefs.js:201
 msgid ""
 "Press 1 to 9 while dragging, then drop anywhere. Press the same number again "
 "to cancel."
 msgstr ""
 
-#: prefs.js:196
+#: prefs.js:202
 msgid "Move All of an App’s Windows"
 msgstr ""
 
-#: prefs.js:197
+#: prefs.js:203
 msgid ""
 "Hold this key while dropping to bring the app’s other windows on this "
 "workspace too. Has no effect if it’s the same key as above."
 msgstr ""
 
-#: prefs.js:204
+#: prefs.js:210
 msgid "Workspaces"
 msgstr ""
 
-#: prefs.js:205
+#: prefs.js:211
 msgid "Offer a New Workspace"
 msgstr ""
 
-#: prefs.js:206
+#: prefs.js:212
 msgid ""
 "Lets you move a window to a new, empty workspace when using dynamic "
 "workspaces"
 msgstr ""
 
-#: prefs.js:212
+#: prefs.js:218
 msgid "Look & Feel"
 msgstr ""
 
-#: prefs.js:214
+#: prefs.js:220
 msgid "Timing"
 msgstr ""
 
-#: prefs.js:215
+#: prefs.js:221
 msgid "Workspace Picker Delay"
 msgstr ""
 
-#: prefs.js:216
+#: prefs.js:222
 msgid ""
 "Time to hold at the edge before the picker opens, in milliseconds. Dropping "
 "sooner moves the window to the next workspace."
 msgstr ""
 
-#: prefs.js:217
+#: prefs.js:223
 msgid "Hold Over Workspace Time"
 msgstr ""
 
-#: prefs.js:218
+#: prefs.js:224
 msgid "Time for a workspace in the picker to fill up, in milliseconds"
 msgstr ""
 
-#: prefs.js:220
+#: prefs.js:226
 msgid "Wait Before Filling"
 msgstr ""
 
-#: prefs.js:221
+#: prefs.js:227
 msgid ""
 "Time over a workspace before it starts to fill, in milliseconds, so that "
 "moving past workspaces doesn’t start it"
 msgstr ""
 
-#: prefs.js:227
+#: prefs.js:233
 msgid "Appearance"
 msgstr ""
 
-#: prefs.js:228
+#: prefs.js:234
 msgid "Workspace Preview Size"
 msgstr ""
 
-#: prefs.js:229
+#: prefs.js:235
 msgid ""
 "Maximum width in pixels. Previews shrink to fit when there are many "
 "workspaces."
 msgstr ""
 
-#: prefs.js:230
+#: prefs.js:236
 msgid "Show Workspace Names"
 msgstr ""
 
-#: prefs.js:231
+#: prefs.js:237
 msgid "Adds any names you’ve given your workspaces to their previews"
 msgstr ""
 
-#: prefs.js:232
+#: prefs.js:238
 msgid "Show App Icons"
 msgstr ""
 
-#: prefs.js:233
+#: prefs.js:239
 msgid "Shows which apps are on each workspace"
 msgstr ""
 
-#: prefs.js:234
+#: prefs.js:240
 msgid "Highlight Zones While Dragging"
 msgstr ""
 
-#: prefs.js:235
+#: prefs.js:241
 msgid "Shows a thin bar along the edge as a window gets close"
 msgstr ""
 
-#: prefs.js:236
+#: prefs.js:242
 msgid "Animate Moved Windows"
 msgstr ""
 
-#: prefs.js:237
+#: prefs.js:243
 msgid "The window slides off the edge of the screen"
 msgstr ""
 
-#: prefs.js:241
+#: prefs.js:247
 msgid "After a Move"
 msgstr ""
 
-#: prefs.js:242
+#: prefs.js:248
 msgid "A small popup that says where a window went"
 msgstr ""
 
-#: prefs.js:244
+#: prefs.js:250
 msgid "Show a Popup"
 msgstr ""
 
-#: prefs.js:245
+#: prefs.js:251
 msgid "Not shown when you go with the window"
 msgstr ""
 
-#: prefs.js:247
+#: prefs.js:253
 msgid "How Long It Stays"
 msgstr ""
 
-#: prefs.js:248
+#: prefs.js:254
 msgid "In milliseconds. It stays longer while the pointer is on it."
 msgstr ""
 
-#: prefs.js:249
+#: prefs.js:255
 msgid "Buttons"
 msgstr ""
 
-#: prefs.js:250
+#: prefs.js:256
 msgid "Undo puts the window back, and Go takes you to it"
 msgstr ""
 
-#: prefs.js:251
+#: prefs.js:257
 msgid "Undo and Go"
 msgstr ""
 
-#: prefs.js:252
+#: prefs.js:258
 msgid "Undo Only"
 msgstr ""
 
-#: prefs.js:253
+#: prefs.js:259
 msgid "Go Only"
 msgstr ""
 
-#: prefs.js:256
+#: prefs.js:262
 msgid "Where It Appears"
 msgstr ""
 
-#: prefs.js:257
+#: prefs.js:263
 msgid "At the Edge"
 msgstr ""
 
-#: prefs.js:258
+#: prefs.js:264
 msgid "Near the Pointer"
 msgstr ""
 
-#: prefs.js:259
+#: prefs.js:265
 msgid "Top of the Screen"
 msgstr ""
 
-#: prefs.js:269
+#: prefs.js:275
 msgid "Reset All Settings"
 msgstr ""
 
-#: prefs.js:273
+#: prefs.js:279
 msgid "Settings reset to defaults"
 msgstr ""
 
@@ -406,7 +423,7 @@ msgstr ""
 msgid "Undo"
 msgstr ""
 
-#: lib/movedPopup.js:26
+#: lib/movedPopup.js:26 lib/ui.js:43
 msgid "Go"
 msgstr ""
 
@@ -414,7 +431,7 @@ msgstr ""
 msgid "Send here"
 msgstr ""
 
-#: lib/ui.js:32 lib/ui.js:117 lib/ui.js:179
+#: lib/ui.js:32 lib/ui.js:121 lib/ui.js:183
 msgid "Go with it"
 msgstr ""
 
@@ -430,43 +447,47 @@ msgstr ""
 msgid "Hold…"
 msgstr ""
 
-#: lib/ui.js:115
+#: lib/ui.js:43
+msgid "Send"
+msgstr ""
+
+#: lib/ui.js:119
 msgid "Hold for workspaces"
 msgstr ""
 
-#: lib/ui.js:118 lib/ui.js:177
+#: lib/ui.js:122 lib/ui.js:181 lib/ui.js:230
 msgid "All windows"
 msgstr ""
 
-#: lib/ui.js:173
+#: lib/ui.js:177
 msgid "Move to a new workspace"
 msgstr ""
 
-#: lib/ui.js:174
+#: lib/ui.js:178
 #, javascript-format
 msgid "Move to workspace %d"
 msgstr ""
 
-#: lib/ui.js:206
+#: lib/ui.js:230
 #, javascript-format
 msgid "All windows: %s"
 msgstr ""
 
-#: lib/ui.js:314
+#: lib/ui.js:341
 #, javascript-format
 msgid "Moved to a new workspace (%d windows)"
 msgstr ""
 
-#: lib/ui.js:314
+#: lib/ui.js:341
 msgid "Moved to a new workspace"
 msgstr ""
 
-#: lib/ui.js:316
+#: lib/ui.js:343
 #, javascript-format
 msgid "Moved to %s (%d windows)"
 msgstr ""
 
-#: lib/ui.js:316
+#: lib/ui.js:343
 #, javascript-format
 msgid "Moved to %s"
 msgstr ""

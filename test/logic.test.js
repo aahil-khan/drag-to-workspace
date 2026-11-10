@@ -592,36 +592,51 @@ test('a chosen workspace that goes away is forgotten', () => {
     assert.equal(s.keyTarget, null);
 });
 
-test('split: the outer part of a card goes with the window, the inner part sends', () => {
+test('split: by default the inner part of a card goes with the window, the outer part sends', () => {
     const s = armedAt(session({pickerGesture: 'split'}));
     s.update(1599, 300, 360, single);
     assert.equal(s.phase, Phase.PICKER);
-    assert.equal(s.inOuterPart, true);
-    assert.equal(s.decide().follow, true);
+    assert.equal(s.inOppositePart, false);
+    assert.equal(s.decide().follow, false);
 
     const cardInner = 1600 - 6 - s.layout.cardWidth;
     s.update(cardInner + 10, 300, 400, single);
-    assert.equal(s.inOuterPart, false);
+    assert.equal(s.inOppositePart, true);
+    assert.equal(s.decide().follow, true);
+});
+
+test('split: the part that goes can be the outer one instead', () => {
+    const s = armedAt(session({pickerGesture: 'split', splitSide: 'outer'}));
+    s.update(1599, 300, 360, single);
+    assert.equal(s.decide().follow, true);
+    s.update(1600 - 6 - s.layout.cardWidth + 10, 300, 400, single);
     assert.equal(s.decide().follow, false);
 });
 
 test('split: no timer, however long the pointer stays', () => {
     const s = armedAt(session({pickerGesture: 'split'}));
     s.update(1599, 300, 360, single);
-    s.update(1420, 300, 400, single);
-    s.update(1420, 300, 9000, single);
+    s.update(1599, 300, 9000, single);
     assert.equal(s.followProgress, 0);
     assert.equal(s.decide().follow, false);
 });
 
-test('split: the size of the outer part is configurable', () => {
-    const s = armedAt(session({pickerGesture: 'split', splitPercent: 20}));
+test('split: the size of the part that goes is configurable', () => {
+    const s = armedAt(session({pickerGesture: 'split', splitSide: 'outer', splitPercent: 20}));
     s.update(1599, 300, 360, single);
     const width = s.layout.cardWidth;
     s.update(1600 - 1 - 6 - width * 0.15, 300, 400, single);
-    assert.equal(s.inOuterPart, true);
+    assert.equal(s.inOppositePart, true);
     s.update(1600 - 1 - 6 - width * 0.3, 300, 410, single);
-    assert.equal(s.inOuterPart, false);
+    assert.equal(s.inOppositePart, false);
+
+    const inner = armedAt(session({pickerGesture: 'split', splitPercent: 20}));
+    inner.update(1599, 300, 360, single);
+    inner.update(1600 - 1 - 6 - width * 0.7, 300, 400, single);
+    assert.equal(inner.inOppositePart, false);
+    inner.update(1600 - 1 - 6 - width * 0.9, 300, 410, single);
+    assert.equal(inner.inOppositePart, true);
+    assert.deepEqual(inner.splitLayout, {outerFraction: 0.8, oppositeIsOuter: false});
 });
 
 test('split: works on the left edge, the top strip, and with drop-action follow', () => {
@@ -630,9 +645,9 @@ test('split: works on the left edge, the top strip, and with drop-action follow'
     left.update(0, 300, 10, single);
     left.update(0, 300, 400, single);
     assert.equal(left.phase, Phase.PICKER);
-    assert.equal(left.inOuterPart, true);
+    assert.equal(left.inOppositePart, false);
     left.update(6 + left.layout.cardWidth - 5, 300, 420, single);
-    assert.equal(left.inOuterPart, false);
+    assert.equal(left.inOppositePart, true);
 
     const top = session({pickerGesture: 'split', topEdge: true});
     top.update(800, 300, 0, single);
@@ -640,12 +655,14 @@ test('split: works on the left edge, the top strip, and with drop-action follow'
     top.update(800, 10, 720, single);
     const card = top.layout.rects[0];
     top.update(card.x + 20, 10, 800, single);
-    assert.equal(top.inOuterPart, true);
+    assert.equal(top.inOppositePart, false);
     top.update(card.x + 20, card.y + card.height - 5, 820, single);
-    assert.equal(top.inOuterPart, false);
-    assert.equal(top.decide().follow, false);
+    assert.equal(top.inOppositePart, true);
+    assert.equal(top.decide().follow, true);
 
     const follow = armedAt(session({pickerGesture: 'split', dropAction: 'follow'}));
     follow.update(1599, 300, 360, single);
+    assert.equal(follow.decide().follow, true);
+    follow.update(1600 - 6 - follow.layout.cardWidth + 10, 300, 400, single);
     assert.equal(follow.decide().follow, false);
 });

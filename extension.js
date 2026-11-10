@@ -215,6 +215,7 @@ export default class EdgeTossExtension extends Extension {
                 followDelay: settings.get_int('follow-delay-ms'),
                 followStartDelay: settings.get_int('follow-start-delay-ms'),
                 pickerGesture: settings.get_string('picker-gesture'),
+                splitSide: settings.get_string('split-side'),
                 splitPercent: settings.get_int('split-percent'),
                 dropAction: settings.get_string('drop-action'),
                 cardWidth: settings.get_int('card-width'),

@@ -1172,7 +1172,7 @@ export default class DriverExtension extends Extension {
             }
         });
 
-        await this._test('split: at the edge the picker goes with the window, further in it sends', async () => {
+        await this._test('split: at the edge the picker sends, further in it goes with the window', async () => {
             await this._withSettings(toss, {'picker-gesture': 'split'}, async () => {
                 await this._spreadWorkspaces(['A', 'B', 'C']);
                 manager().get_workspace_by_index(0).activate(global.get_current_time());
@@ -1181,40 +1181,44 @@ export default class DriverExtension extends Extension {
                 d.activate(global.get_current_time());
                 await sleep(150);
                 const card = () => toss.stateObj._overlay._cards[session().selected];
+                const active = () => Object.entries(card()._parts)
+                    .find(([, part]) => part.has_style_pseudo_class('checked'))?.[0];
                 await this._grabTitlebar(d);
                 await this._moveTo(RIGHT, 300);
                 await sleep(450);
                 check(session().phase === 'picker', `phase was ${session().phase}`);
-                check(session().inOuterPart, 'the pointer at the edge is not on the outer part');
-                check(card()._caption.text === 'Go with it', `caption ${card()._caption.text}`);
-                await this._shot('36-split-outer');
+                check(!session().inOppositePart, 'the pointer at the edge does the opposite');
+                check(active() === 'outer', `active part ${active()}`);
+                check(card()._parts.outer.child.text === 'Send here', `outer says ${card()._parts.outer.child.text}`);
+                check(card()._parts.inner.child.text === 'Go with it', `inner says ${card()._parts.inner.child.text}`);
+                await this._shot('36-split-at-edge');
 
                 const inner = RIGHT - 6 - session().layout.cardWidth + 20;
                 await this._moveTo(inner, 300);
                 await sleep(80);
-                check(!session().inOuterPart, 'still on the outer part');
-                check(card()._caption.text === 'Send here', `caption ${card()._caption.text}`);
+                check(session().inOppositePart, 'not on the inner part');
+                check(active() === 'inner', `active part ${active()}`);
                 await this._shot('37-split-inner');
                 await sleep(2000);
-                check(!session().willFollow(false), 'a timer swapped it');
+                check(session().willFollow(false), 'no longer going with the window');
                 await this._drop();
-                await sleep(400);
+                await sleep(600);
                 check(d.get_workspace().index() === 1, `D on ${d.get_workspace().index()}`);
-                check(activeIndex() === 0, `active is ${activeIndex()}`);
+                check(activeIndex() === 1, `active is ${activeIndex()}`);
             });
         });
 
-        await this._test('split: dropping on the outer part goes with the window', async () => {
+        await this._test('split: dropping at the edge just sends', async () => {
             await this._withSettings(toss, {'picker-gesture': 'split'}, async () => {
                 const a = this._find('A');
                 await this._grabTitlebar(a);
                 await this._moveTo(RIGHT, 300);
                 await sleep(450);
-                check(session().inOuterPart, 'not on the outer part');
+                check(!session().inOppositePart, 'on the inner part');
                 await this._drop();
-                await sleep(600);
+                await sleep(400);
                 check(a.get_workspace().index() === 1, `A on ${a.get_workspace().index()}`);
-                check(activeIndex() === 1, `active is ${activeIndex()}`);
+                check(activeIndex() === 0, `active is ${activeIndex()}`);
             });
         });
 

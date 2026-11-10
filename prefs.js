@@ -96,7 +96,7 @@ function timingPreviewRow(settings) {
     return row;
 }
 
-export default class EdgeTossPreferences extends ExtensionPreferences {
+export default class DragToWorkspacePreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
         const settings = this.getSettings();
         // Keeps it alive for as long as the window is open.

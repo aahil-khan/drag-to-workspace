@@ -1,4 +1,4 @@
-UUID := edge-toss@aahil-khan.github.com
+UUID := drag-to-workspace@aahil-khan.github.com
 EXT_DIR := $(HOME)/.local/share/gnome-shell/extensions/$(UUID)
 
 .PHONY: test schemas e2e install uninstall pack matrix pot
@@ -31,5 +31,5 @@ matrix: pack
 # Regenerates the template that translations in po/ are made from.
 pot:
 	xgettext --from-code=UTF-8 --language=JavaScript --keyword=_ --add-comments \
-		--package-name=edge-toss --output=po/edge-toss.pot \
+		--package-name=drag-to-workspace --output=po/drag-to-workspace.pot \
 		extension.js prefs.js lib/*.js prefs/*.js

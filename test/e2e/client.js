@@ -6,7 +6,7 @@ import Gtk from 'gi://Gtk?version=4.0';
 
 const title = ARGV[0];
 const app = new Gtk.Application({
-    application_id: `dev.edgetoss.Client.${title.replace(/\W/g, '')}`,
+    application_id: `dev.dragtoworkspace.Client.${title.replace(/\W/g, '')}`,
     flags: Gio.ApplicationFlags.NON_UNIQUE,
 });
 app.connect('activate', () => {

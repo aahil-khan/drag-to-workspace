@@ -6,7 +6,7 @@
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
-SCHEMA=schemas/org.gnome.shell.extensions.edge-toss.gschema.xml
+SCHEMA=schemas/org.gnome.shell.extensions.drag-to-workspace.gschema.xml
 
 build() {
     local name=$1 versions=$2
@@ -36,9 +36,9 @@ build() {
     fi
     (cd "$src" && gnome-extensions pack --force --out-dir="$ROOT/dist/$name" \
         --extra-source=lib --extra-source=prefs --schema="$SCHEMA" "${translations[@]}" .)
-    mv "$ROOT/dist/$name/edge-toss@aahil-khan.github.com.shell-extension.zip" \
-        "$ROOT/dist/edge-toss-gnome-$name.zip"
-    echo "dist/edge-toss-gnome-$name.zip  ($versions)"
+    mv "$ROOT/dist/$name/drag-to-workspace@aahil-khan.github.com.shell-extension.zip" \
+        "$ROOT/dist/drag-to-workspace-gnome-$name.zip"
+    echo "dist/drag-to-workspace-gnome-$name.zip  ($versions)"
 }
 
 rm -f "$ROOT"/dist/*.zip

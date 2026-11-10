@@ -22,7 +22,7 @@ TARGETS=(
 )
 
 # Errors from each distro's own GNOME build, reproduced by the "control" scenario with
-# Edge Toss turned off. Anything else fails the run.
+# Drag to Workspace turned off. Anything else fails the run.
 known_error() {
     case $1 in
         alma-10) echo 'record is undefined' ;;
@@ -30,7 +30,7 @@ known_error() {
     esac
 }
 
-BUILD_TIMEOUT=${EDGE_TOSS_BUILD_TIMEOUT:-1500}
+BUILD_TIMEOUT=${DTW_BUILD_TIMEOUT:-1500}
 
 only=""
 if [ "${1:-}" = "--only" ]; then
@@ -74,7 +74,7 @@ for target in "${TARGETS[@]}"; do
         continue
     fi
 
-    tag="localhost/edge-toss-test:$distro"
+    tag="localhost/drag-to-workspace-test:$distro"
     out="$MATRIX_OUT/$distro"
     rm -rf "$out"
     mkdir -p "$out"
@@ -88,14 +88,14 @@ for target in "${TARGETS[@]}"; do
 
     podman run --rm --network=none --security-opt label=disable --device /dev/dri \
         -v "$ROOT:/src:ro" -v "$out:/out" \
-        -e EDGE_TOSS_ONLY="$only" -e EDGE_TOSS_NO_REPORT=1 -e EDGE_TOSS_PREFS_BASIC=1 \
-        -e EDGE_TOSS_SCENARIOS="${EDGE_TOSS_SCENARIOS:-single dual prefs}" -e EDGE_TOSS_E2E_OUT=/out -e EDGE_TOSS_TIMEOUT="${EDGE_TOSS_TIMEOUT:-580}" \
-        "$tag" /src/test/e2e/container-run.sh "/src/dist/edge-toss-gnome-$zip.zip" >"$out/run.log" 2>&1
+        -e DTW_ONLY="$only" -e DTW_NO_REPORT=1 -e DTW_PREFS_BASIC=1 \
+        -e DTW_SCENARIOS="${DTW_SCENARIOS:-single dual prefs}" -e DTW_E2E_OUT=/out -e DTW_TIMEOUT="${DTW_TIMEOUT:-580}" \
+        "$tag" /src/test/e2e/container-run.sh "/src/dist/drag-to-workspace-gnome-$zip.zip" >"$out/run.log" 2>&1
 
     version=$(grep -m1 -E '^GNOME Shell ' "$out/run.log" || echo 'version unknown')
     line="$distro  $version"
-    for scenario in ${EDGE_TOSS_SCENARIOS:-single dual prefs}; do
-        if report=$(EDGE_TOSS_KNOWN_ERROR="$(known_error "$distro")" node "$ROOT/test/e2e/report.mjs" "$out/results-$scenario.json" "$out/shell-$scenario.log" 2>&1); then
+    for scenario in ${DTW_SCENARIOS:-single dual prefs}; do
+        if report=$(DTW_KNOWN_ERROR="$(known_error "$distro")" node "$ROOT/test/e2e/report.mjs" "$out/results-$scenario.json" "$out/shell-$scenario.log" 2>&1); then
             line+="  $scenario: $(echo "$report" | tail -1)"
         else
             status=1

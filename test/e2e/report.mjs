@@ -7,8 +7,8 @@ const log = existsSync(logPath) ? readFileSync(logPath, 'utf8') : '';
 // Any JS error counts, even with a shell-only stack: an extension can cause those too.
 const lines = log.split('\n');
 const jsErrors = [];
-// EDGE_TOSS_KNOWN_ERROR names a bug shown to happen on that distro with the extension off.
-const known = process.env.EDGE_TOSS_KNOWN_ERROR;
+// DTW_KNOWN_ERROR names a bug shown to happen on that distro with the extension off.
+const known = process.env.DTW_KNOWN_ERROR;
 lines.forEach((line, i) => {
     if (line.includes('JS ERROR') && !(known && line.includes(known)))
         jsErrors.push(lines.slice(i, i + 4).join('\n'));

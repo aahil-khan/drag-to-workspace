@@ -12,4 +12,4 @@ unzip -q "$1" -d /ext
 glib-compile-schemas --strict /ext/schemas
 gnome-shell --version
 
-EDGE_TOSS_EXT_DIR=/ext /src/test/e2e/run.sh ${EDGE_TOSS_SCENARIOS:-single dual prefs}
+DTW_EXT_DIR=/ext /src/test/e2e/run.sh ${DTW_SCENARIOS:-single dual prefs}

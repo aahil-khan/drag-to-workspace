@@ -38,7 +38,7 @@ export function writeZone(settings, side, zone) {
  * zone itself to slide it along the edge.
  */
 export const ZoneEditor = GObject.registerClass(
-class EdgeTossZoneEditor extends Gtk.DrawingArea {
+class DragToWorkspaceZoneEditor extends Gtk.DrawingArea {
     constructor(settings) {
         super({
             content_height: 280,
@@ -193,7 +193,7 @@ class EdgeTossZoneEditor extends Gtk.DrawingArea {
         const labelX = side === 'left' ? x + STRIP_WIDTH + 10 : x - 10;
         const dim = {red: fg.red, green: fg.green, blue: fg.blue, alpha: 0.6};
 
-        // The whole edge, which GNOME keeps wherever Edge Toss doesn't.
+        // The whole edge, which GNOME keeps wherever Drag to Workspace doesn't.
         this._roundRect(cr, x, top, STRIP_WIDTH, trackHeight, 7);
         cr.setSourceRGBA(fg.red, fg.green, fg.blue, 0.14);
         cr.fill();

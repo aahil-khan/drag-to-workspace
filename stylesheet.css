@@ -1,9 +1,9 @@
-.edge-toss-hint {
+.drag-to-workspace-hint {
   background-color: -st-accent-color;
   border-radius: 3px;
 }
 
-.edge-toss-tab {
+.drag-to-workspace-tab {
   background-color: rgba(30, 30, 34, 0.94);
   color: #ffffff;
   border: 1px solid rgba(255, 255, 255, 0.14);
@@ -15,40 +15,40 @@
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
 }
 
-.edge-toss-progress {
+.drag-to-workspace-progress {
   background-color: -st-accent-color;
   border-radius: 2px;
 }
 
-.edge-toss-card {
+.drag-to-workspace-card {
   background-color: #1e1e22;
   border-radius: 10px;
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
 }
 
-.edge-toss-card-frame {
+.drag-to-workspace-card-frame {
   transition-duration: 150ms;
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 10px;
 }
 
-.edge-toss-card-frame:selected {
+.drag-to-workspace-card-frame:selected {
   border: 3px solid -st-accent-color;
 }
 
-.edge-toss-card-frame:checked {
+.drag-to-workspace-card-frame:checked {
   border: 4px solid #ffffff;
 }
 
-.edge-toss-fill {
+.drag-to-workspace-fill {
   background-color: st-transparentize(-st-accent-color, 0.35);
 }
 
-.edge-toss-fill:checked {
+.drag-to-workspace-fill:checked {
   background-color: st-transparentize(-st-accent-color, 0.15);
 }
 
-.edge-toss-badge {
+.drag-to-workspace-badge {
   background-color: rgba(20, 20, 24, 0.86);
   color: #ffffff;
   border-radius: 7px;
@@ -58,12 +58,12 @@
   font-feature-settings: "tnum";
 }
 
-.edge-toss-badge-new {
+.drag-to-workspace-badge-new {
   background-color: -st-accent-color;
   color: -st-accent-fg-color;
 }
 
-.edge-toss-caption {
+.drag-to-workspace-caption {
   background-color: rgba(20, 20, 24, 0.86);
   color: #ffffff;
   border-radius: 7px;
@@ -72,23 +72,23 @@
   font-weight: bold;
 }
 
-.edge-toss-caption:checked {
+.drag-to-workspace-caption:checked {
   background-color: #ffffff;
   color: #1e1e22;
 }
 
-.edge-toss-card-top {
+.drag-to-workspace-card-top {
   spacing: 6px;
 }
 
-.edge-toss-card-icons {
+.drag-to-workspace-card-icons {
   background-color: rgba(20, 20, 24, 0.86);
   border-radius: 7px;
   padding: 3px 5px;
   spacing: 4px;
 }
 
-.edge-toss-popup {
+.drag-to-workspace-popup {
   background-color: rgba(30, 30, 34, 0.96);
   color: #ffffff;
   border: 1px solid rgba(255, 255, 255, 0.14);
@@ -99,7 +99,7 @@
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
 }
 
-.edge-toss-popup-button {
+.drag-to-workspace-popup-button {
   background-color: rgba(255, 255, 255, 0.12);
   color: #ffffff;
   border-radius: 8px;
@@ -107,30 +107,30 @@
   font-weight: bold;
 }
 
-.edge-toss-popup-button:hover {
+.drag-to-workspace-popup-button:hover {
   background-color: rgba(255, 255, 255, 0.24);
 }
 
-.edge-toss-popup-button:active {
+.drag-to-workspace-popup-button:active {
   background-color: rgba(255, 255, 255, 0.32);
 }
 
-.edge-toss-popup-label-only {
+.drag-to-workspace-popup-label-only {
   padding: 8px 14px;
 }
 
 
 
-.edge-toss-part {
+.drag-to-workspace-part {
   padding-bottom: 8px;
   transition-duration: 180ms;
 }
 
-.edge-toss-part:checked {
+.drag-to-workspace-part:checked {
   background-color: st-transparentize(-st-accent-color, 0.85);
 }
 
-.edge-toss-part-label {
+.drag-to-workspace-part-label {
   transition-duration: 180ms;
   color: rgba(255, 255, 255, 0.6);
   font-size: 9pt;
@@ -138,7 +138,7 @@
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
-.edge-toss-part:checked .edge-toss-part-label {
+.drag-to-workspace-part:checked .drag-to-workspace-part-label {
   background-color: rgba(20, 20, 24, 0.86);
   border-radius: 7px;
   color: #ffffff;
@@ -146,6 +146,6 @@
   text-shadow: none;
 }
 
-.edge-toss-part-divider {
+.drag-to-workspace-part-divider {
   background-color: rgba(255, 255, 255, 0.45);
 }

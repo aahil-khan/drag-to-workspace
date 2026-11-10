@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist>
-  <schema id="org.gnome.shell.extensions.edge-toss" path="/org/gnome/shell/extensions/edge-toss/">
+  <schema id="org.gnome.shell.extensions.drag-to-workspace" path="/org/gnome/shell/extensions/drag-to-workspace/">
     <key name="hold-delay-ms" type="i">
       <range min="100" max="1500"/>
       <default>350</default>

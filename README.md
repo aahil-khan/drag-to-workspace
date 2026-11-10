@@ -1,9 +1,9 @@
-<h1 align="center">Edge Toss</h1>
+<h1 align="center">Drag to Workspace</h1>
 
 <p align="center">
   <img src="https://img.shields.io/badge/GNOME-46--51-4A86CF?logo=gnome&logoColor=white" alt="GNOME 46 to 51">
-  <a href="https://github.com/aahil-khan/edge-toss/releases/latest"><img src="https://img.shields.io/github/v/release/aahil-khan/edge-toss" alt="Latest release"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/aahil-khan/edge-toss" alt="License"></a>
+  <a href="https://github.com/aahil-khan/drag-to-workspace/releases/latest"><img src="https://img.shields.io/github/v/release/aahil-khan/drag-to-workspace" alt="Latest release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/aahil-khan/drag-to-workspace" alt="License"></a>
 </p>
 
 <p align="center">Move windows to other workspaces by dragging them to the edge of the screen, without opening the overview.</p>
@@ -37,9 +37,9 @@ It works with touchscreens too, using the same gestures with your finger. The ke
 
 | GNOME | Download |
 | --- | --- |
-| 49, 50, 51 | `edge-toss-gnome-49-51.zip` |
-| 47, 48 | `edge-toss-gnome-47-48.zip` |
-| 46 | `edge-toss-gnome-46.zip` |
+| 49, 50, 51 | `drag-to-workspace-gnome-49-51.zip` |
+| 47, 48 | `drag-to-workspace-gnome-47-48.zip` |
+| 46 | `drag-to-workspace-gnome-46.zip` |
 
 Check yours with `gnome-shell --version`. Each version was tested on real distro builds, including Ubuntu 24.04 and 26.04, Debian 13, Fedora 41 to 45, and AlmaLinux 10.
 
@@ -47,25 +47,25 @@ Check yours with `gnome-shell --version`. Each version was tested on real distro
 
 ### From a release
 
-1. Download the zip for your GNOME version from the [latest release](https://github.com/aahil-khan/edge-toss/releases/latest).
+1. Download the zip for your GNOME version from the [latest release](https://github.com/aahil-khan/drag-to-workspace/releases/latest).
 2. Install it:
 
    ```sh
-   gnome-extensions install --force edge-toss-gnome-49-51.zip
+   gnome-extensions install --force drag-to-workspace-gnome-49-51.zip
    ```
 
 3. Log out and back in, as GNOME only finds new extensions at login.
 4. Turn it on:
 
    ```sh
-   gnome-extensions enable edge-toss@aahil-khan.github.com
+   gnome-extensions enable drag-to-workspace@aahil-khan.github.com
    ```
 
 ### From source
 
 ```sh
-git clone https://github.com/aahil-khan/edge-toss.git
-cd edge-toss
+git clone https://github.com/aahil-khan/drag-to-workspace.git
+cd drag-to-workspace
 make install
 ```
 
@@ -73,7 +73,7 @@ This links the checkout into your extensions folder for GNOME 49 or newer. On ol
 
 ## Window tiling
 
-Dropping a window on a side of the screen normally tiles it to half the screen. Edge Toss only uses part of each edge, the top two thirds by default, and normal tiling keeps working everywhere else. A thin bar shows the zone as a window gets close.
+Dropping a window on a side of the screen normally tiles it to half the screen. Drag to Workspace only uses part of each edge, the top two thirds by default, and normal tiling keeps working everywhere else. A thin bar shows the zone as a window gets close.
 
 You can resize or move the zones in the settings, or use only one edge. Another way to share an edge is to lower **Distance from Edge**: windows then tile near the edge and move when pushed right up to it.
 
@@ -90,7 +90,7 @@ If workspaces are set to the primary display only, windows on other displays are
 Open them from the Extensions app, or run:
 
 ```sh
-gnome-extensions prefs edge-toss@aahil-khan.github.com
+gnome-extensions prefs drag-to-workspace@aahil-khan.github.com
 ```
 
 - **Zones:** where on each edge windows move, how close the pointer has to be, which monitors are used, and the hold-only edges.
@@ -105,7 +105,7 @@ gnome-extensions prefs edge-toss@aahil-khan.github.com
 
 ## Translations
 
-Translations are welcome. Start from `po/edge-toss.pot`, save it as `po/<language>.po`, and open a pull request.
+Translations are welcome. Start from `po/drag-to-workspace.pot`, save it as `po/<language>.po`, and open a pull request.
 
 ## Development
 
@@ -115,7 +115,7 @@ make e2e      # real drags in a sandboxed headless GNOME Shell, on your own vers
 make install  # symlinks this checkout into your extensions folder
 make pack     # builds the zips for extensions.gnome.org into dist/
 make matrix   # tests each zip on the distros it targets, in containers with podman
-make pot      # regenerates the translation template, po/edge-toss.pot
+make pot      # regenerates the translation template, po/drag-to-workspace.pot
 ```
 
 `make e2e` runs a throwaway `gnome-shell --headless` with its own home, dconf and session bus, so it doesn't touch your running desktop. A driver extension moves a virtual pointer over real GTK4 windows and checks the results through Mutter. Any JS error in the shell log fails the run. Screenshots and logs land in `test/e2e/out/`.
@@ -135,9 +135,9 @@ There's no version checking at runtime. Each range of versions gets its own zip,
 
 | Zip | Versions | Differs by |
 | --- | --- | --- |
-| `edge-toss-gnome-49-51.zip` | 49, 50, 51 | This checkout as it is |
-| `edge-toss-gnome-47-48.zip` | 47, 48 | `compat/pre49`, the older maximize API |
-| `edge-toss-gnome-46.zip` | 46 | Also `compat/46`, as there's no accent colour |
+| `drag-to-workspace-gnome-49-51.zip` | 49, 50, 51 | This checkout as it is |
+| `drag-to-workspace-gnome-47-48.zip` | 47, 48 | `compat/pre49`, the older maximize API |
+| `drag-to-workspace-gnome-46.zip` | 46 | Also `compat/46`, as there's no accent colour |
 
 ## License
 

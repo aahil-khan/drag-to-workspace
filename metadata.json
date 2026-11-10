@@ -1,13 +1,13 @@
 {
-  "uuid": "edge-toss@aahil-khan.github.com",
-  "name": "Edge Toss",
+  "uuid": "drag-to-workspace@aahil-khan.github.com",
+  "name": "Drag to Workspace",
   "description": "Move windows to other workspaces by dragging them to the edge of the screen, without opening the overview.\n\n* Drop at the edge to move a window to the next workspace\n* Hold at the edge to choose from all workspaces on that side\n* Stay where you are, or go with the window\n* Choose which part of each edge is used, so window tiling keeps working",
   "shell-version": [
     "49",
     "50",
     "51"
   ],
-  "settings-schema": "org.gnome.shell.extensions.edge-toss",
-  "url": "https://github.com/aahil-khan/edge-toss",
-  "gettext-domain": "edge-toss"
+  "settings-schema": "org.gnome.shell.extensions.drag-to-workspace",
+  "url": "https://github.com/aahil-khan/drag-to-workspace",
+  "gettext-domain": "drag-to-workspace"
 }

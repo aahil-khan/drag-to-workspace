@@ -4,9 +4,9 @@
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
-OUT=${EDGE_TOSS_E2E_OUT:-$ROOT/test/e2e/out}
-UUID=edge-toss@aahil-khan.github.com
-DRIVER=edge-toss-driver@test
+OUT=${DTW_E2E_OUT:-$ROOT/test/e2e/out}
+UUID=drag-to-workspace@aahil-khan.github.com
+DRIVER=drag-to-workspace-driver@test
 status=0
 
 run_scenario() {
@@ -20,17 +20,17 @@ run_scenario() {
 
     mkdir -p "$sandbox"/{home,config,cache,runtime,data/gnome-shell/extensions} "$OUT"
     chmod 700 "$sandbox/runtime"
-    # EDGE_TOSS_EXT_DIR tests a built package instead of this checkout.
-    ln -s "${EDGE_TOSS_EXT_DIR:-$ROOT}" "$sandbox/data/gnome-shell/extensions/$UUID"
+    # DTW_EXT_DIR tests a built package instead of this checkout.
+    ln -s "${DTW_EXT_DIR:-$ROOT}" "$sandbox/data/gnome-shell/extensions/$UUID"
     ln -s "$ROOT/test/e2e/driver" "$sandbox/data/gnome-shell/extensions/$DRIVER"
     rm -f "$OUT/results-$scenario.json"
 
     # An installed app, so the shell tracks its windows as one app with a real ID.
     mkdir -p "$sandbox/data/applications"
-    cat >"$sandbox/data/applications/dev.edgetoss.Client.E.desktop" <<'DESKTOP'
+    cat >"$sandbox/data/applications/dev.dragtoworkspace.Client.E.desktop" <<'DESKTOP'
 [Desktop Entry]
 Type=Application
-Name=Edge Toss Test App
+Name=Drag to Workspace Test App
 Exec=true
 Icon=applications-system-symbolic
 DESKTOP
@@ -45,13 +45,13 @@ DESKTOP
         XDG_DATA_DIRS=/usr/local/share:/usr/share \
         XDG_SESSION_TYPE=wayland \
         XDG_CURRENT_DESKTOP=GNOME \
-        WAYLAND_DISPLAY=edge-toss-test \
-        EDGE_TOSS_OUT="$OUT" \
-        EDGE_TOSS_SCENARIO="$scenario" \
+        WAYLAND_DISPLAY=drag-to-workspace-test \
+        DTW_OUT="$OUT" \
+        DTW_SCENARIO="$scenario" \
         LANGUAGE="${LANGUAGE:-}" \
-        EDGE_TOSS_ONLY="${EDGE_TOSS_ONLY:-}" \
-        EDGE_TOSS_PREFS_BASIC="${EDGE_TOSS_PREFS_BASIC:-}" \
-        EDGE_TOSS_CLIENT="$ROOT/test/e2e/client.js" \
+        DTW_ONLY="${DTW_ONLY:-}" \
+        DTW_PREFS_BASIC="${DTW_PREFS_BASIC:-}" \
+        DTW_CLIENT="$ROOT/test/e2e/client.js" \
         dbus-run-session -- bash -c '
             dconf write /org/gnome/shell/enabled-extensions "[\"'"$UUID"'\", \"'"$DRIVER"'\"]"
             dconf write /org/gnome/shell/disable-user-extensions false
@@ -59,12 +59,12 @@ DESKTOP
             dconf write /org/gnome/mutter/dynamic-workspaces true
             dconf write /org/gnome/mutter/edge-tiling true
             dconf write /org/gnome/desktop/interface/enable-hot-corners false
-            exec timeout --kill-after=10 '"${EDGE_TOSS_TIMEOUT:-300}"' gnome-shell --headless --no-x11 --force-animations \
-                --wayland-display=edge-toss-test "$@"
+            exec timeout --kill-after=10 '"${DTW_TIMEOUT:-300}"' gnome-shell --headless --no-x11 --force-animations \
+                --wayland-display=drag-to-workspace-test "$@"
         ' _ "$@" >"$OUT/shell-$scenario.log" 2>&1 || true
 
     # In a container there's no node, and the matrix reports from the host instead.
-    if [ -z "${EDGE_TOSS_NO_REPORT:-}" ] && ! node "$ROOT/test/e2e/report.mjs" "$OUT/results-$scenario.json" "$OUT/shell-$scenario.log"; then
+    if [ -z "${DTW_NO_REPORT:-}" ] && ! node "$ROOT/test/e2e/report.mjs" "$OUT/results-$scenario.json" "$OUT/shell-$scenario.log"; then
         status=1
     fi
 }

@@ -1,6 +1,6 @@
 {
-  "uuid": "edge-toss-driver@test",
-  "name": "Edge Toss test driver",
-  "description": "Runs real drags against Edge Toss inside a sandboxed headless shell.",
+  "uuid": "drag-to-workspace-driver@test",
+  "name": "Drag to Workspace test driver",
+  "description": "Runs real drags against Drag to Workspace inside a sandboxed headless shell.",
   "shell-version": ["46", "47", "48", "49", "50", "51"]
 }

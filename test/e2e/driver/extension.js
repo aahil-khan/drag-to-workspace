@@ -19,10 +19,10 @@ const KEY_ALT = 0xffe9;
 const KEY_ESCAPE = 0xff1b;
 const KEY_3 = 0x33;
 const ARM_SETTLE = 60;
-const OUT = GLib.getenv('EDGE_TOSS_OUT');
-const SCENARIO = GLib.getenv('EDGE_TOSS_SCENARIO') ?? 'single';
-const CLIENT = GLib.getenv('EDGE_TOSS_CLIENT');
-const ONLY = GLib.getenv('EDGE_TOSS_ONLY');
+const OUT = GLib.getenv('DTW_OUT');
+const SCENARIO = GLib.getenv('DTW_SCENARIO') ?? 'single';
+const CLIENT = GLib.getenv('DTW_CLIENT');
+const ONLY = GLib.getenv('DTW_ONLY');
 
 const sleep = ms => new Promise(resolve => GLib.timeout_add(GLib.PRIORITY_DEFAULT, ms, () => {
     resolve();
@@ -64,10 +64,10 @@ function sameRect(a, b, slack = 2) {
 
 export default class DriverExtension extends Extension {
     enable() {
-        // Disabling Edge Toss in a test makes the shell cycle extensions enabled after it.
-        if (globalThis.__edgeTossDriverStarted)
+        // Disabling Drag to Workspace in a test makes the shell cycle extensions enabled after it.
+        if (globalThis.__dragToWorkspaceDriverStarted)
             return;
-        globalThis.__edgeTossDriverStarted = true;
+        globalThis.__dragToWorkspaceDriverStarted = true;
 
         const seat = (Clutter.get_default_backend?.() ?? global.stage.get_context().get_backend()).get_default_seat();
         this._pointer = seat.create_virtual_device(Clutter.InputDeviceType.POINTER_DEVICE);
@@ -297,10 +297,10 @@ export default class DriverExtension extends Extension {
         if (ONLY && !name.includes(ONLY))
             return;
         const started = Date.now();
-        console.log(`[edge-toss-driver] TEST ${name}`);
+        console.log(`[drag-to-workspace-driver] TEST ${name}`);
         try {
             await this._reset();
-            console.log('[edge-toss-driver] RESET DONE');
+            console.log('[drag-to-workspace-driver] RESET DONE');
             await fn();
             this._results.push({name, ok: true, ms: Date.now() - started});
         } catch (e) {
@@ -372,7 +372,7 @@ export default class DriverExtension extends Extension {
             await this._drop();
         });
 
-        await this._test('Shift means nothing to Edge Toss: the throw still lands, and you stay', async () => {
+        await this._test('Shift means nothing to Drag to Workspace: the throw still lands, and you stay', async () => {
             const a = this._find('A');
             const before = rectOf(a);
             await this._grabTitlebar(a);
@@ -1073,7 +1073,7 @@ export default class DriverExtension extends Extension {
 
         await this._test('an excluded app is left alone, and others still move', async () => {
             await this._withSettings(toss, {
-                'excluded-apps': new GLib.Variant('as', ['dev.edgetoss.Client.E.desktop']),
+                'excluded-apps': new GLib.Variant('as', ['dev.dragtoworkspace.Client.E.desktop']),
             }, async () => {
                 await this._withAppWindows(async e => {
                     e.activate(global.get_current_time());
@@ -1842,7 +1842,7 @@ export default class DriverExtension extends Extension {
     }
 
     /**
-     * The same window activity as the tests, with Edge Toss off. A JS error here is the
+     * The same window activity as the tests, with Drag to Workspace off. A JS error here is the
      * distro's GNOME build, not the extension.
      */
     async _controlRun(toss) {
@@ -1850,7 +1850,7 @@ export default class DriverExtension extends Extension {
         await sleep(300);
         const W = global.display.get_monitor_geometry(0).width;
 
-        await this._test('control: another move during a drag, with Edge Toss off', async () => {
+        await this._test('control: another move during a drag, with Drag to Workspace off', async () => {
             await this._spreadWorkspaces(['A', 'B', 'C']);
             this._find('D').change_workspace_by_index(1, true);
             await sleep(150);
@@ -1868,7 +1868,7 @@ export default class DriverExtension extends Extension {
             await this._drop();
         });
 
-        await this._test('control: closing and reopening a window, with Edge Toss off', async () => {
+        await this._test('control: closing and reopening a window, with Drag to Workspace off', async () => {
             this._find('A').delete(global.get_current_time());
             await sleep(400);
             this._spawn('A');
@@ -1877,7 +1877,7 @@ export default class DriverExtension extends Extension {
             await sleep(30000);
         });
 
-        await this._test('control: ordinary window activity for a while, with Edge Toss off', async () => {
+        await this._test('control: ordinary window activity for a while, with Drag to Workspace off', async () => {
             const a = this._find('A');
             for (let i = 0; i < 12; i++) {
                 await this._reset();
@@ -1900,8 +1900,8 @@ export default class DriverExtension extends Extension {
             driver._slides++;
             return animateSwitch.apply(this, args);
         };
-        const toss = Main.extensionManager.lookup('edge-toss@aahil-khan.github.com');
-        check(toss?.stateObj?._overlay, `Edge Toss did not load: state=${toss?.state} error=${toss?.error}`);
+        const toss = Main.extensionManager.lookup('drag-to-workspace@aahil-khan.github.com');
+        check(toss?.stateObj?._overlay, `Drag to Workspace did not load: state=${toss?.state} error=${toss?.error}`);
 
         for (const title of ['A', 'B', 'C', 'D'])
             this._spawn(title);
@@ -1920,7 +1920,7 @@ export default class DriverExtension extends Extension {
                 let win = null;
                 for (let i = 0; i < 80 && !win; i++) {
                     await sleep(100);
-                    win = global.display.list_all_windows().find(w => /Edge Toss/.test(w.get_title() ?? ''));
+                    win = global.display.list_all_windows().find(w => /Drag to Workspace/.test(w.get_title() ?? ''));
                 }
                 check(win, 'no settings window appeared');
                 await sleep(800);
@@ -1929,7 +1929,7 @@ export default class DriverExtension extends Extension {
                 await this._shot('20-prefs-area');
                 // Fonts move everything around on other distros, so these positions only
                 // hold on the development machine.
-                if (GLib.getenv('EDGE_TOSS_PREFS_BASIC'))
+                if (GLib.getenv('DTW_PREFS_BASIC'))
                     return;
                 const settings = toss.stateObj.getSettings();
                 const r = rectOf(win);
@@ -2046,7 +2046,7 @@ export default class DriverExtension extends Extension {
                 await this._shot('26-prefs-hold-only-edges');
 
                 // The excluded apps page, with one in the list, then its dialog.
-                settings.set_strv('excluded-apps', ['dev.edgetoss.Client.E.desktop']);
+                settings.set_strv('excluded-apps', ['dev.dragtoworkspace.Client.E.desktop']);
                 await this._moveTo(...at(537, 22));
                 await sleep(80);
                 this._button(true);

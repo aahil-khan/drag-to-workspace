@@ -1,10 +1,10 @@
-// Edge Toss: drag a window to a screen edge to throw it onto another workspace.
+// Drag to Workspace: drag a window to a screen edge to throw it onto another workspace.
 //
 // Sharing the edge with GNOME's half-tiling: Mutter decides to tile from the
 // pointer position during the drag, and nothing exposes a way to veto it. Flipping
 // org.gnome.mutter edge-tiling mid-drag does not work, because Mutter keeps the
 // tile mode it already chose once the setting goes off (meta-window-drag.c), and a
-// crash would leave the setting off for good. So while Edge Toss owns the pointer
+// crash would leave the setting off for good. So while Drag to Workspace owns the pointer
 // it hides the tile preview, lets Mutter tile on release if it wants to, and undoes
 // that before the next frame as it moves the window away.
 
@@ -103,7 +103,7 @@ function snapshotMonitors() {
     }));
 }
 
-export default class EdgeTossExtension extends Extension {
+export default class DragToWorkspaceExtension extends Extension {
     enable() {
         this._settings = this.getSettings();
         this._wmSettings = new Gio.Settings({schema_id: 'org.gnome.desktop.wm.preferences'});
@@ -235,7 +235,7 @@ export default class EdgeTossExtension extends Extension {
             this._tick();
             return GLib.SOURCE_CONTINUE;
         });
-        GLib.Source.set_name_by_id(this._pollId, '[edge-toss] drag poll');
+        GLib.Source.set_name_by_id(this._pollId, '[drag-to-workspace] drag poll');
         this._tick();
     }
 
@@ -517,7 +517,7 @@ export default class EdgeTossExtension extends Extension {
                 workspace.activate_with_focus(win, global.get_current_time());
             return GLib.SOURCE_REMOVE;
         });
-        GLib.Source.set_name_by_id(this._pendingSwitchId, '[edge-toss] switch once buttons are up');
+        GLib.Source.set_name_by_id(this._pendingSwitchId, '[drag-to-workspace] switch once buttons are up');
     }
 
     /**

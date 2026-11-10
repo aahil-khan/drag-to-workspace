@@ -27,6 +27,7 @@
 }
 
 .edge-toss-card-frame {
+  transition-duration: 150ms;
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 10px;
 }
@@ -122,6 +123,7 @@
 
 .edge-toss-part {
   padding-bottom: 8px;
+  transition-duration: 180ms;
 }
 
 .edge-toss-part:checked {
@@ -129,6 +131,7 @@
 }
 
 .edge-toss-part-label {
+  transition-duration: 180ms;
   color: rgba(255, 255, 255, 0.6);
   font-size: 9pt;
   padding: 2px 8px;

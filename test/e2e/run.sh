@@ -50,6 +50,7 @@ DESKTOP
         DTW_SCENARIO="$scenario" \
         LANGUAGE="${LANGUAGE:-}" \
         DTW_ONLY="${DTW_ONLY:-}" \
+        DTW_WAVE_SHOTS="${DTW_WAVE_SHOTS:-}" \
         DTW_PREFS_BASIC="${DTW_PREFS_BASIC:-}" \
         DTW_CLIENT="$ROOT/test/e2e/client.js" \
         dbus-run-session -- bash -c '

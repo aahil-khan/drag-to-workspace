@@ -313,14 +313,20 @@ export default class DriverExtension extends Extension {
     /** Runs fn with settings changed, then puts them back to their defaults. */
     async _withSettings(toss, values, fn) {
         const settings = toss.stateObj.getSettings();
+        // Put back what was there, not the default: the suite sets some keys of its own.
+        const before = Object.keys(values).map(key => [key, settings.get_user_value(key)]);
         for (const [key, value] of Object.entries(values))
             settings.set_value(key, value instanceof GLib.Variant ? value : variantFor(value));
         await sleep(100);
         try {
             await fn();
         } finally {
-            for (const key of Object.keys(values))
-                settings.reset(key);
+            for (const [key, value] of before) {
+                if (value)
+                    settings.set_value(key, value);
+                else
+                    settings.reset(key);
+            }
             await sleep(100);
         }
     }
@@ -523,16 +529,27 @@ export default class DriverExtension extends Extension {
             check(session().phase === 'picker', `phase was ${session().phase}`);
             check(session().selected === 0, `opened on ${session().selected}, not the next workspace`);
             check(session().slot?.insertAt === 1, `slot ${JSON.stringify(session().slot)}`);
+            await this._shot('04a-slot-closed');
             const slot = session().layout.slotRect;
             await this._moveTo(RIGHT, slot.y + slot.height / 2);
-            await sleep(100);
+            await sleep(250);
             check(session().selected === -2, `selected ${session().selected}`);
-            check(toss.stateObj._overlay._slotCard?.visible, 'no slot card drawn');
+            const overlay = toss.stateObj._overlay;
+            check(overlay._placeholder?.visible, 'the new workspace card is not showing');
+            check(overlay._cards[0]._badge.text === '3', `the next card says ${overlay._cards[0]._badge.text}, not 3`);
             this._key(KEY_ALT, true);
             await sleep(80);
             await this._shot('04-slot');
             this._key(KEY_ALT, false);
             await sleep(80);
+            const first = session().placement.rects[0];
+            await this._moveTo(RIGHT, first.y + first.height / 2);
+            await sleep(250);
+            check(overlay._cards[0]._badge.text === '2', `the next card says ${overlay._cards[0]._badge.text} off the slot`);
+            await this._shot('04b-slot-left');
+            const back = session().placement.slotRect;
+            await this._moveTo(RIGHT, back.y + back.height / 2);
+            await sleep(150);
             this._slides = 0;
             await this._drop();
             await sleep(400);
@@ -587,6 +604,37 @@ export default class DriverExtension extends Extension {
                 this._key(KEY_ESCAPE, false);
                 await this._drop();
             });
+        });
+
+        await this._test('the cards deal out in a wave, and a quick choice does not wait for it', async () => {
+            await this._spreadWorkspaces(['A', 'B', 'C']);
+            manager().get_workspace_by_index(0).activate(global.get_current_time());
+            await sleep(500);
+            const d = this._find('D');
+            d.activate(global.get_current_time());
+            await sleep(150);
+            await this._grabTitlebar(d);
+            await this._moveTo(RIGHT, 500);
+            for (let i = 0; i < 100 && session().phase !== 'picker'; i++)
+                await sleep(5);
+            check(session().phase === 'picker', `phase was ${session().phase}`);
+            const cards = toss.stateObj._overlay._cards;
+            check(cards.at(-1).opacity < 255 || cards.at(-1).translation_x > 0, 'the last card was already in place');
+            if (GLib.getenv('DTW_WAVE_SHOTS')) {
+                for (let t = 0; t <= 330; t += 30) {
+                    const row = cards.map(c => `${c.opacity}/${c.translation_x.toFixed(0)}`).join('  ');
+                    console.log(`[drag-to-workspace-driver] WAVE ${t}ms  ${row}`);
+                    await sleep(30);
+                }
+            }
+            // Straight to the second card and drop, while the wave may still be going.
+            const rect = session().layout.rects[1];
+            await this._moveTo(RIGHT, rect.y + rect.height / 2);
+            await sleep(30);
+            check(session().selected === 1, `selected ${session().selected}`);
+            await this._drop();
+            await sleep(400);
+            check(d.get_workspace().index() === 2, `D on ${d.get_workspace().index()}`);
         });
 
         await this._test('holding on a card goes with the window', async () => {
@@ -1311,8 +1359,10 @@ export default class DriverExtension extends Extension {
                 await this._moveTo(RIGHT, slot.y + slot.height / 2);
                 await sleep(250);
                 await this._shot('39-split-slot-all-windows');
-                await this._moveTo(RIGHT, 300);
+                const first = session().placement.rects[0];
+                await this._moveTo(RIGHT, first.y + first.height / 2);
                 await sleep(250);
+                check(session().selected === 0, `selected ${session().selected} after leaving the slot`);
                 this._key(KEY_ALT, false);
                 await sleep(80);
                 check(card()._parts.outer.child.text === 'Send here', `outer says ${card()._parts.outer.child.text}`);

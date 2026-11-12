@@ -690,12 +690,16 @@ test('computeSlot: not where it would be the same as an existing target, or impo
     assert.equal(computeSlot({...base, activeIndex: 1, side: 'right', targets, offerNew: false}), null);
 });
 
-test('layoutPicker: the slot sits slim before the first card, which stays under the pointer', () => {
+test('layoutPicker: the slot is a gap before the first card, which stays under the pointer', () => {
     const workArea = {x: 0, y: 32, width: 1600, height: 968};
     const l = layoutPicker({count: 3, pointerY: 500, workArea, aspect: 1.6, slot: true});
     assert.ok(l.slotRect.height < l.cardHeight);
     assert.equal(l.slotRect.y + l.slotRect.height + l.gap, l.rects[0].y);
     assert.equal(Math.round(l.rects[0].y + l.cardHeight / 2), 500);
+    // Opened, it's a full card, and the others move along by the difference.
+    assert.equal(l.open.slotRect.height, l.cardHeight);
+    assert.equal(l.open.rects[0].y, l.open.slotRect.y + l.cardHeight + l.gap);
+    assert.ok(l.open.rects.at(-1).y + l.cardHeight <= 1000);
 
     const crowded = layoutPicker({count: 20, pointerY: 500, workArea, aspect: 1.6, slot: true});
     assert.ok(crowded.slotRect.y >= 32);
@@ -726,7 +730,7 @@ test('slot: pointing at it inserts a new workspace, and moving off it chooses ca
     assert.deepEqual(s.decide(), {target: {index: -1, isNew: true, insertAt: 1, slot: true}, follow: false});
     assert.equal(s.decide(true).follow, true);
 
-    const first = s.layout.rects[0];
+    const first = s.placement.rects[0];
     s.update(1599, first.y + first.height / 2, 450, single);
     assert.equal(s.selected, 0);
 });
@@ -750,4 +754,25 @@ test('slot: none on the top strip', () => {
     assert.equal(s.phase, Phase.PICKER);
     assert.equal(s.slot, null);
     assert.equal(s.layout.slotRect ?? null, null);
+});
+
+test('slot: once open, it stays open, so cards never slide back under the pointer', () => {
+    const s = armedAt(slotted());
+    s.update(1599, 300, 360, single);
+    const handle = s.layout.slotRect;
+    s.update(1599, handle.y + handle.height / 2, 400, single);
+    assert.equal(s.selected, SLOT);
+
+    const open = s.placement.slotRect;
+    s.update(1599, open.y + open.height - 10, 450, single);
+    assert.equal(s.selected, SLOT);
+
+    // The middle of the first card, where it is now, chooses it and keeps choosing it.
+    const first = s.placement.rects[0];
+    s.update(1599, first.y + first.height / 2, 500, single);
+    assert.equal(s.selected, 0);
+    assert.equal(s.slotOpen, true);
+    s.update(1599, first.y + first.height / 2 + 1, 550, single);
+    assert.equal(s.selected, 0);
+    assert.deepEqual(s.placement.rects, s.layout.open.rects);
 });

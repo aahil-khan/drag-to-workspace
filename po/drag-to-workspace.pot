@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: drag-to-workspace\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-12 11:05+0530\n"
+"POT-Creation-Date: 2026-11-12 12:51+0530\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -423,75 +423,80 @@ msgstr ""
 msgid "Undo"
 msgstr ""
 
-#: lib/movedPopup.js:26 lib/ui.js:43
+#: lib/movedPopup.js:26 lib/ui.js:52
 msgid "Go"
 msgstr ""
 
-#: lib/ui.js:30
+#: lib/ui.js:39
 msgid "Send here"
 msgstr ""
 
-#: lib/ui.js:32 lib/ui.js:121 lib/ui.js:183
+#: lib/ui.js:41 lib/ui.js:130 lib/ui.js:192
 msgid "Go with it"
 msgstr ""
 
-#: lib/ui.js:34
+#: lib/ui.js:43
 msgid "Hold to go with it"
 msgstr ""
 
-#: lib/ui.js:36
+#: lib/ui.js:45
 msgid "Hold to stay here"
 msgstr ""
 
-#: lib/ui.js:38
+#: lib/ui.js:47
 msgid "Hold…"
 msgstr ""
 
-#: lib/ui.js:43
+#: lib/ui.js:52
 msgid "Send"
 msgstr ""
 
-#: lib/ui.js:119
+#: lib/ui.js:128
 msgid "Hold for workspaces"
 msgstr ""
 
-#: lib/ui.js:122 lib/ui.js:181 lib/ui.js:232 lib/workspaceCard.js:123
+#: lib/ui.js:131 lib/ui.js:190 lib/ui.js:241 lib/workspaceCard.js:123
 msgid "All windows"
 msgstr ""
 
-#: lib/ui.js:177
+#: lib/ui.js:186
 msgid "Move to a new workspace"
 msgstr ""
 
-#: lib/ui.js:178
+#: lib/ui.js:187
 #, javascript-format
 msgid "Move to workspace %d"
 msgstr ""
 
-#: lib/ui.js:232
+#: lib/ui.js:241
 #, javascript-format
 msgid "All windows: %s"
 msgstr ""
 
-#: lib/ui.js:292
-msgid "+  New workspace here"
+#: lib/ui.js:300
+#, javascript-format
+msgid "%d  New workspace"
 msgstr ""
 
-#: lib/ui.js:365
+#: lib/ui.js:301 lib/ui.js:364
+msgid "New workspace"
+msgstr ""
+
+#: lib/ui.js:474
 #, javascript-format
 msgid "Moved to a new workspace (%d windows)"
 msgstr ""
 
-#: lib/ui.js:365
+#: lib/ui.js:474
 msgid "Moved to a new workspace"
 msgstr ""
 
-#: lib/ui.js:367
+#: lib/ui.js:476
 #, javascript-format
 msgid "Moved to %s (%d windows)"
 msgstr ""
 
-#: lib/ui.js:367
+#: lib/ui.js:476
 #, javascript-format
 msgid "Moved to %s"
 msgstr ""

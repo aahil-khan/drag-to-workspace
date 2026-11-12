@@ -149,3 +149,16 @@
 .drag-to-workspace-part-divider {
   background-color: rgba(255, 255, 255, 0.45);
 }
+
+/* The gap before the first card that opens up into a new workspace. */
+.drag-to-workspace-insert-line {
+  background-color: -st-accent-color;
+  border-radius: 1px;
+}
+
+.drag-to-workspace-insert-plus {
+  background-color: -st-accent-color;
+  color: -st-accent-fg-color;
+  border-radius: 9px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}

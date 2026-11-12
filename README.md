@@ -21,6 +21,18 @@
   <img src="docs/demo.gif" width="820" alt="Dragging windows to the screen edge to move them between workspaces">
 </p>
 
+## Contents
+
+- [How it works](#how-it-works)
+- [Features](#features)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Settings](#settings)
+- [FAQ](#faq)
+- [Uninstalling](#uninstalling)
+- [Contributing](#contributing)
+- [License](#license)
+
 ## How it works
 
 1. **Drag a window to the left or right edge.** A small tab shows which workspace it will go to.
@@ -63,25 +75,48 @@ The window keeps its position and size on the new workspace, and stays maximized
 | **Follows your style** | Uses your accent colour, and respects GNOME's reduced animation setting |
 | **Translatable** | Every bit of text can be translated |
 
+## Requirements
+
+- **GNOME Shell 46 to 51**, on Wayland or X11. Check with `gnome-shell --version`.
+- `curl` or `wget`, and `unzip`, which most systems have. Install it as yourself, not with `sudo`.
+
+Every version is tested on real distro builds: Ubuntu 24.04 and 26.04, Debian 13, Fedora 41 to 45, and AlmaLinux 10.
+
 ## Installation
 
-> **From GNOME Extensions:** coming soon to [extensions.gnome.org](https://extensions.gnome.org).
+1. Run this in a terminal:
 
-### From a release
+   ```sh
+   curl -fsSL https://raw.githubusercontent.com/aahil-khan/drag-to-workspace/main/get.sh | bash
+   ```
 
-Download the zip for your GNOME version from the [latest release](https://github.com/aahil-khan/drag-to-workspace/releases/latest). Check your version with `gnome-shell --version`.
+2. **Log out and back in.** GNOME Shell on Wayland only loads a new extension at login. On GNOME 46 to 48 with X11, press Alt+F2, type `r` and press Enter instead.
+
+That's all. The script picks the zip for your GNOME version from the latest release, checks it, installs it for your user only and turns it on. Run the same command again to update; your settings stay as you set them.
+
+> [!NOTE]
+> **GNOME Extensions:** under review on [extensions.gnome.org](https://extensions.gnome.org).
+
+### Other ways to install
+
+**From a release zip.** Download the zip for your GNOME version from the [latest release](https://github.com/aahil-khan/drag-to-workspace/releases/latest):
+
+| GNOME | Zip |
+|---|---|
+| 49, 50, 51 | `drag-to-workspace-gnome-49-51.zip` |
+| 47, 48 | `drag-to-workspace-gnome-47-48.zip` |
+| 46 | `drag-to-workspace-gnome-46.zip` |
 
 ```sh
 gnome-extensions install --force drag-to-workspace-gnome-49-51.zip
-```
-
-GNOME only finds new extensions at login, so log out and back in, then turn it on:
-
-```sh
+# Log out and back in, then:
 gnome-extensions enable drag-to-workspace@aahil-khan.github.com
 ```
 
-### From source
+<details>
+<summary><b>From source</b></summary>
+
+<br>
 
 ```sh
 git clone https://github.com/aahil-khan/drag-to-workspace.git
@@ -91,15 +126,7 @@ make install
 
 This links the checkout into your extensions folder, for GNOME 49 or newer. On older versions, run `make pack` and install the zip it builds in `dist/` instead. Then log out, log back in, and enable it as above.
 
-## Supported versions
-
-| GNOME | Zip |
-|---|---|
-| 49, 50, 51 | `drag-to-workspace-gnome-49-51.zip` |
-| 47, 48 | `drag-to-workspace-gnome-47-48.zip` |
-| 46 | `drag-to-workspace-gnome-46.zip` |
-
-Every version is tested on real distro builds: Ubuntu 24.04 and 26.04, Debian 13, Fedora 41 to 45, and AlmaLinux 10.
+</details>
 
 ## Settings
 
@@ -135,6 +162,18 @@ Fullscreen windows and windows set to show on every workspace stay put. So do wi
 
 **What about grids of workspaces?**<br>
 They're treated as one long row: the left edge goes to earlier workspaces and the right edge to later ones.
+
+## Uninstalling
+
+```sh
+gnome-extensions uninstall drag-to-workspace@aahil-khan.github.com
+```
+
+Or remove it from the Extensions app. Its settings stay in dconf in case you come back; to clear them too:
+
+```sh
+dconf reset -f /org/gnome/shell/extensions/drag-to-workspace/
+```
 
 ## Contributing
 

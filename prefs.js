@@ -209,7 +209,7 @@ export default class DragToWorkspacePreferences extends ExtensionPreferences {
 
         const targets = new Adw.PreferencesGroup({title: _('Workspaces')});
         targets.add(switchRow(settings, 'offer-new-workspace', _('Offer a New Workspace'),
-            _('Lets you move a window to a new, empty workspace when using dynamic workspaces')));
+            _('Lets you move a window to a new, empty workspace, at the end or right next to this one, when using dynamic workspaces')));
         page.add(targets);
         return page;
     }

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: drag-to-workspace\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-10 13:05+0530\n"
+"POT-Creation-Date: 2026-11-12 11:05+0530\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -265,8 +265,8 @@ msgstr ""
 
 #: prefs.js:212
 msgid ""
-"Lets you move a window to a new, empty workspace when using dynamic "
-"workspaces"
+"Lets you move a window to a new, empty workspace, at the end or right next "
+"to this one, when using dynamic workspaces"
 msgstr ""
 
 #: prefs.js:218
@@ -455,7 +455,7 @@ msgstr ""
 msgid "Hold for workspaces"
 msgstr ""
 
-#: lib/ui.js:122 lib/ui.js:181 lib/ui.js:230
+#: lib/ui.js:122 lib/ui.js:181 lib/ui.js:232 lib/workspaceCard.js:123
 msgid "All windows"
 msgstr ""
 
@@ -468,26 +468,30 @@ msgstr ""
 msgid "Move to workspace %d"
 msgstr ""
 
-#: lib/ui.js:230
+#: lib/ui.js:232
 #, javascript-format
 msgid "All windows: %s"
 msgstr ""
 
-#: lib/ui.js:341
+#: lib/ui.js:292
+msgid "+  New workspace here"
+msgstr ""
+
+#: lib/ui.js:365
 #, javascript-format
 msgid "Moved to a new workspace (%d windows)"
 msgstr ""
 
-#: lib/ui.js:341
+#: lib/ui.js:365
 msgid "Moved to a new workspace"
 msgstr ""
 
-#: lib/ui.js:343
+#: lib/ui.js:367
 #, javascript-format
 msgid "Moved to %s (%d windows)"
 msgstr ""
 
-#: lib/ui.js:343
+#: lib/ui.js:367
 #, javascript-format
 msgid "Moved to %s"
 msgstr ""

@@ -37,7 +37,7 @@
 
 1. **Drag a window to the left or right edge.** A small tab shows which workspace it will go to.
 2. **Let go straight away** to send it to the next workspace. You stay where you are.
-3. **Or keep holding**, and a column of every workspace on that side opens, with live previews. Point at one and let go. Drop on the half nearest the edge to just send the window there, or the inner half to go with it.
+3. **Or keep holding**, and a column of every workspace on that side opens, with live previews. Point at one and let go. Drop on the half nearest the edge to just send the window there, or the inner half to go with it. The slim **New workspace here** slot at the top of the column squeezes in a new workspace right next to this one.
 
 The window keeps its position and size on the new workspace, and stays maximized if it was maximized. Change your mind? Drag back away from the edge or press Escape, and nothing moves.
 
@@ -51,6 +51,7 @@ The window keeps its position and size on the new workspace, and stays maximized
 | Hold at the edge | A picker shows every workspace on that side, with live previews |
 | Drop on the outer half of a workspace in the picker | The window moves there, and you stay where you are |
 | Drop on the inner half | The window moves there, and you go with it |
+| Drop on **New workspace here**, above the cards | A new workspace is made right next to this one, pushing the others along, and the window moves there. Needs dynamic workspaces. |
 | Hold at the top edge | Every workspace in one row, on both sides. A quick drop still maximizes. |
 | Press 1 to 9 | Chooses that workspace, so you can drop anywhere. Press it again to cancel. |
 | Hold Ctrl as you drop, or right-click | Goes with the window, wherever you drop |

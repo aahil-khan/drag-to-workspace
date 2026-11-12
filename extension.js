@@ -18,7 +18,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {TilePreview} from 'resource:///org/gnome/shell/ui/windowManager.js';
 import {Extension, InjectionManager} from 'resource:///org/gnome/shell/extensions/extension.js';
 
-import {computeTargets, DragSession} from './lib/logic.js';
+import {computeSlot, computeTargets, DragSession} from './lib/logic.js';
 import {Overlay} from './lib/ui.js';
 import {hasMaximizedState, isMaximized, maximize, unmaximize} from './lib/windowState.js';
 
@@ -207,6 +207,7 @@ export default class DragToWorkspaceExtension extends Extension {
             },
             session: new DragSession({
                 getTargets: side => this._targetsFor(win, this._homeWorkspace(drag), side, offerNew),
+                getSlot: (side, targets) => this._slotFor(win, this._homeWorkspace(drag), side, offerNew, targets),
                 band: settings.get_int('edge-depth'),
                 aspect: originMonitor.width / originMonitor.height,
                 zones: {left: zone('left'), right: zone('right')},
@@ -295,13 +296,15 @@ export default class DragToWorkspaceExtension extends Extension {
         return drag.originWorkspace;
     }
 
+    _isAlone(win, workspace) {
+        return !workspace.list_windows()
+            .some(w => w !== win && w.get_transient_for() !== win && countsOnWorkspace(w));
+    }
+
     _targetsFor(win, workspace, side, offerNew) {
         const manager = global.workspace_manager;
         const count = manager.get_n_workspaces();
         const last = manager.get_workspace_by_index(count - 1);
-
-        const others = workspace.list_windows()
-            .filter(w => w !== win && w.get_transient_for() !== win && countsOnWorkspace(w));
 
         return computeTargets({
             activeIndex: workspace.index(),
@@ -309,8 +312,19 @@ export default class DragToWorkspaceExtension extends Extension {
             side,
             dynamic: Meta.prefs_get_dynamic_workspaces(),
             lastIsEmpty: !last.list_windows().some(countsOnWorkspace),
-            windowAlone: others.length === 0,
+            windowAlone: this._isAlone(win, workspace),
             offerNew,
+        });
+    }
+
+    _slotFor(win, workspace, side, offerNew, targets) {
+        return computeSlot({
+            activeIndex: workspace.index(),
+            side,
+            dynamic: Meta.prefs_get_dynamic_workspaces(),
+            windowAlone: this._isAlone(win, workspace),
+            offerNew,
+            targets,
         });
     }
 
@@ -403,7 +417,12 @@ export default class DragToWorkspaceExtension extends Extension {
 
     /** Which way a window goes when it wasn't dropped on a side edge. */
     _sideOf(decision, origin) {
-        return decision && decision.target.index < origin.index() ? 'left' : 'right';
+        if (!decision)
+            return 'right';
+        // A new workspace inserted at the origin's own position pushes the origin right.
+        const {index, insertAt} = decision.target;
+        const before = insertAt === undefined ? index < origin.index() : insertAt <= origin.index();
+        return before ? 'left' : 'right';
     }
 
     /** The other windows of the same app on the same workspace. */
@@ -434,7 +453,7 @@ export default class DragToWorkspaceExtension extends Extension {
             // current workspace under a new index, which on GNOME 50 plays a full
             // workspace slide. Reordering leaves the active workspace alone.
             workspace = manager.append_new_workspace(false, global.get_current_time());
-            manager.reorder_workspace(workspace, 0);
+            manager.reorder_workspace(workspace, target.insertAt ?? 0);
         } else {
             workspace = manager.get_workspace_by_index(target.index);
         }

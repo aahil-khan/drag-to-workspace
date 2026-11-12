@@ -509,6 +509,86 @@ export default class DriverExtension extends Extension {
             check(activeIndex() === 0, `active is ${activeIndex()}`);
         });
 
+        await this._test('slot: a new workspace squeezed in between this one and the next', async () => {
+            await this._spreadWorkspaces(['A', 'B', 'C']);
+            manager().get_workspace_by_index(0).activate(global.get_current_time());
+            await sleep(500);
+            const d = this._find('D');
+            d.activate(global.get_current_time());
+            await sleep(150);
+            const before = manager().get_n_workspaces();
+            await this._grabTitlebar(d);
+            await this._moveTo(RIGHT, 300);
+            await sleep(450);
+            check(session().phase === 'picker', `phase was ${session().phase}`);
+            check(session().selected === 0, `opened on ${session().selected}, not the next workspace`);
+            check(session().slot?.insertAt === 1, `slot ${JSON.stringify(session().slot)}`);
+            const slot = session().layout.slotRect;
+            await this._moveTo(RIGHT, slot.y + slot.height / 2);
+            await sleep(100);
+            check(session().selected === -2, `selected ${session().selected}`);
+            check(toss.stateObj._overlay._slotCard?.visible, 'no slot card drawn');
+            this._key(KEY_ALT, true);
+            await sleep(80);
+            await this._shot('04-slot');
+            this._key(KEY_ALT, false);
+            await sleep(80);
+            this._slides = 0;
+            await this._drop();
+            await sleep(400);
+            check(this._slides === 0, `played ${this._slides} workspace slides while staying`);
+            check(manager().get_n_workspaces() === before + 1, `${manager().get_n_workspaces()} workspaces, was ${before}`);
+            check(d.get_workspace().index() === 1, `D on ${d.get_workspace().index()}`);
+            check(this._find('A').get_workspace().index() === 0, `A on ${this._find('A').get_workspace().index()}`);
+            check(this._find('B').get_workspace().index() === 2, `B on ${this._find('B').get_workspace().index()}`);
+            check(this._find('C').get_workspace().index() === 3, `C on ${this._find('C').get_workspace().index()}`);
+            check(activeIndex() === 0, `active is ${activeIndex()}`);
+        });
+
+        await this._test('slot on the left: lands just before this workspace, and you stay put', async () => {
+            await this._spreadWorkspaces(['A', 'B', 'C']);
+            const d = this._find('D');
+            d.change_workspace_by_index(2, false);
+            manager().get_workspace_by_index(2).activate(global.get_current_time());
+            await sleep(600);
+            d.activate(global.get_current_time());
+            await sleep(150);
+            await this._grabTitlebar(d);
+            await this._moveTo(0, 300);
+            await sleep(450);
+            check(session().phase === 'picker', `phase was ${session().phase}`);
+            check(session().slot?.insertAt === 2, `slot ${JSON.stringify(session().slot)}`);
+            const slot = session().layout.slotRect;
+            await this._moveTo(0, slot.y + slot.height / 2);
+            await sleep(100);
+            check(session().selected === -2, `selected ${session().selected}`);
+            await this._drop();
+            await sleep(400);
+            check(d.get_workspace().index() === 2, `D on ${d.get_workspace().index()}`);
+            check(this._find('B').get_workspace().index() === 1, `B on ${this._find('B').get_workspace().index()}`);
+            check(this._find('C').get_workspace().index() === 3, `C on ${this._find('C').get_workspace().index()}`);
+            check(manager().get_active_workspace() === this._find('C').get_workspace(), `active is ${activeIndex()}, not C's`);
+        });
+
+        await this._test('slot: not offered with new workspaces turned off', async () => {
+            await this._withSettings(toss, {'offer-new-workspace': false}, async () => {
+                await this._spreadWorkspaces(['A', 'B', 'C']);
+                manager().get_workspace_by_index(0).activate(global.get_current_time());
+                await sleep(500);
+                const d = this._find('D');
+                await this._grabTitlebar(d);
+                await this._moveTo(RIGHT, 300);
+                await sleep(450);
+                check(session().phase === 'picker', `phase was ${session().phase}`);
+                check(session().slot === null, `slot ${JSON.stringify(session().slot)}`);
+                check(!session().layout.slotRect, 'a slot was laid out');
+                this._key(KEY_ESCAPE, true);
+                await sleep(40);
+                this._key(KEY_ESCAPE, false);
+                await this._drop();
+            });
+        });
+
         await this._test('holding on a card goes with the window', async () => {
             const a = this._find('A');
             const overlay = () => toss.stateObj._overlay;
@@ -1208,6 +1288,40 @@ export default class DriverExtension extends Extension {
             });
         });
 
+        await this._test('split: with Alt, each part says All windows, and nothing covers the parts', async () => {
+            await this._withSettings(toss, {'picker-gesture': 'split'}, async () => {
+                await this._spreadWorkspaces(['A', 'B', 'C']);
+                manager().get_workspace_by_index(0).activate(global.get_current_time());
+                await sleep(500);
+                const d = this._find('D');
+                d.activate(global.get_current_time());
+                await sleep(150);
+                const card = () => toss.stateObj._overlay._cards[session().selected];
+                await this._grabTitlebar(d);
+                await this._moveTo(RIGHT, 300);
+                await sleep(450);
+                this._key(KEY_ALT, true);
+                await sleep(80);
+                const {outer, inner} = card()._parts;
+                check(outer.child.text === 'All windows\nSend here', `outer says ${outer.child.text}`);
+                check(inner.child.text === 'All windows\nGo with it', `inner says ${inner.child.text}`);
+                check(card()._caption.opacity === 0, 'a caption is drawn over the parts');
+                await this._shot('38-split-all-windows');
+                const slot = session().layout.slotRect;
+                await this._moveTo(RIGHT, slot.y + slot.height / 2);
+                await sleep(250);
+                await this._shot('39-split-slot-all-windows');
+                await this._moveTo(RIGHT, 300);
+                await sleep(250);
+                this._key(KEY_ALT, false);
+                await sleep(80);
+                check(card()._parts.outer.child.text === 'Send here', `outer says ${card()._parts.outer.child.text}`);
+                await this._drop();
+                await sleep(300);
+                check(d.get_workspace().index() === 1, `D on ${d.get_workspace().index()}`);
+            });
+        });
+
         await this._test('split: dropping at the edge just sends', async () => {
             await this._withSettings(toss, {'picker-gesture': 'split'}, async () => {
                 const a = this._find('A');
@@ -1244,6 +1358,9 @@ export default class DriverExtension extends Extension {
                 await this._grabTitlebar(a);
                 await this._moveTo(RIGHT, 300);
                 await sleep(420);
+                // Under load the first frame of the picker can land a little late.
+                for (let i = 0; i < 10 && !card()?._caption.text; i++)
+                    await sleep(20);
                 check(card()._caption.text === 'Go with it', `caption ${card()._caption.text}`);
                 await sleep(700);
                 check(card()._caption.text === 'Hold to stay here', `caption ${card()._caption.text}`);

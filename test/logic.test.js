@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
     Phase, findEdge, isTossHeight, tossSpan, moveZone, zonePartAt, captionFor,
-    computeTargets, layoutPicker, layoutStrip, cardAt, DragSession,
+    computeTargets, computeSlot, layoutPicker, layoutStrip, cardAt, DragSession, SLOT,
 } from '../lib/logic.js';
 
 const mon = (x, y, width, height, panel = 32) => ({
@@ -665,4 +665,89 @@ test('split: works on the left edge, the top strip, and with drop-action follow'
     assert.equal(follow.decide().follow, true);
     follow.update(1600 - 6 - follow.layout.cardWidth + 10, 300, 400, single);
     assert.equal(follow.decide().follow, false);
+});
+
+test('computeSlot: a new workspace right next to this one, on either side', () => {
+    const args = {activeIndex: 1, dynamic: true, windowAlone: false};
+    const right = computeSlot({...args, side: 'right', targets: computeTargets({...args, count: 4, side: 'right', lastIsEmpty: true})});
+    assert.deepEqual(right, {index: -1, isNew: true, insertAt: 2, slot: true});
+    const left = computeSlot({...args, side: 'left', targets: computeTargets({...args, count: 4, side: 'left', lastIsEmpty: true})});
+    assert.equal(left.insertAt, 1);
+});
+
+test('computeSlot: not where it would be the same as an existing target, or impossible', () => {
+    const base = {dynamic: true, windowAlone: false};
+    // Next is already the empty last workspace, or the left edge already offers one before the first.
+    const atEnd = {...base, activeIndex: 2, count: 4, lastIsEmpty: true};
+    assert.equal(computeSlot({...atEnd, side: 'right', targets: computeTargets({...atEnd, side: 'right'})}), null);
+    const atStart = {...base, activeIndex: 0, count: 3, lastIsEmpty: true};
+    assert.equal(computeSlot({...atStart, side: 'left', targets: computeTargets({...atStart, side: 'left'})}), null);
+
+    const targets = [{index: 2, isNew: false}];
+    assert.equal(computeSlot({...base, activeIndex: 1, side: 'top', targets}), null);
+    assert.equal(computeSlot({...base, activeIndex: 1, side: 'right', targets, dynamic: false}), null);
+    assert.equal(computeSlot({...base, activeIndex: 1, side: 'right', targets, windowAlone: true}), null);
+    assert.equal(computeSlot({...base, activeIndex: 1, side: 'right', targets, offerNew: false}), null);
+});
+
+test('layoutPicker: the slot sits slim before the first card, which stays under the pointer', () => {
+    const workArea = {x: 0, y: 32, width: 1600, height: 968};
+    const l = layoutPicker({count: 3, pointerY: 500, workArea, aspect: 1.6, slot: true});
+    assert.ok(l.slotRect.height < l.cardHeight);
+    assert.equal(l.slotRect.y + l.slotRect.height + l.gap, l.rects[0].y);
+    assert.equal(Math.round(l.rects[0].y + l.cardHeight / 2), 500);
+
+    const crowded = layoutPicker({count: 20, pointerY: 500, workArea, aspect: 1.6, slot: true});
+    assert.ok(crowded.slotRect.y >= 32);
+    assert.ok(crowded.rects.at(-1).y + crowded.rects.at(-1).height <= 1000);
+});
+
+const slotted = (opts = {}) => session({
+    getSlot: () => ({index: -1, isNew: true, insertAt: 1, slot: true}),
+    ...opts,
+});
+
+test('slot: a quick drop and the opening picker still use the next workspace', () => {
+    const s = armedAt(slotted());
+    assert.deepEqual(s.decide().target, {index: 1, isNew: false});
+    s.update(1599, 300, 360, single);
+    assert.equal(s.phase, Phase.PICKER);
+    assert.equal(s.selected, 0);
+    assert.ok(s.layout.slotRect);
+});
+
+test('slot: pointing at it inserts a new workspace, and moving off it chooses cards again', () => {
+    const s = armedAt(slotted());
+    s.update(1599, 300, 360, single);
+    const slot = s.layout.slotRect;
+    s.update(1599, slot.y + slot.height / 2, 400, single);
+    assert.equal(s.selected, SLOT);
+    assert.equal(s.ownsPointer, true);
+    assert.deepEqual(s.decide(), {target: {index: -1, isNew: true, insertAt: 1, slot: true}, follow: false});
+    assert.equal(s.decide(true).follow, true);
+
+    const first = s.layout.rects[0];
+    s.update(1599, first.y + first.height / 2, 450, single);
+    assert.equal(s.selected, 0);
+});
+
+test('slot: the split gesture works on it too', () => {
+    const s = armedAt(slotted({pickerGesture: 'split'}));
+    s.update(1599, 300, 360, single);
+    const slot = s.layout.slotRect;
+    s.update(1599, slot.y + slot.height / 2, 400, single);
+    assert.equal(s.decide().follow, false);
+    s.update(1599 - s.layout.cardWidth + 20, slot.y + slot.height / 2, 450, single);
+    assert.equal(s.selected, SLOT);
+    assert.equal(s.decide().follow, true);
+});
+
+test('slot: none on the top strip', () => {
+    const s = slotted({topEdge: true});
+    s.update(800, 300, 0, single);
+    s.update(800, 32, 0, single);
+    s.update(800, 32, 2000, single);
+    assert.equal(s.phase, Phase.PICKER);
+    assert.equal(s.slot, null);
+    assert.equal(s.layout.slotRect ?? null, null);
 });
